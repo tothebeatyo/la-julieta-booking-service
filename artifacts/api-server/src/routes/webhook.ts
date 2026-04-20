@@ -13,6 +13,7 @@ import {
   INTENT_QUICK_REPLIES,
   randomPick,
 } from "../flows/responses";
+import { upsertClient, logMessage } from "../services/clientService";
 
 const router: IRouter = Router();
 
@@ -85,6 +86,11 @@ async function processEvent(event: Record<string, unknown>): Promise<void> {
   const payload = quickReplyPayload ?? postbackPayload;
 
   logger.info({ psid, text, payload }, "Processing message");
+
+  // Log inbound message and upsert client record
+  const inboundContent = text || payload || "(postback)";
+  await logMessage(psid, "inbound", inboundContent);
+  await upsertClient({ psid, lastMessage: inboundContent, status: "inquiry" });
 
   const session = getSession(psid);
 
