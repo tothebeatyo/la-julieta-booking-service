@@ -8,6 +8,7 @@ async function callSendAPI(body: object): Promise<void> {
     logger.error("PAGE_ACCESS_TOKEN is not set");
     return;
   }
+  logger.info({ body: JSON.stringify(body).slice(0, 120) }, "Calling Messenger API");
   const response = await fetch(`${GRAPH_API}?access_token=${PAGE_ACCESS_TOKEN}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -16,6 +17,9 @@ async function callSendAPI(body: object): Promise<void> {
   if (!response.ok) {
     const text = await response.text();
     logger.error({ status: response.status, body: text }, "Messenger API error");
+  } else {
+    const json = await response.json() as { message_id?: string };
+    logger.info({ message_id: json.message_id }, "Messenger API success");
   }
 }
 

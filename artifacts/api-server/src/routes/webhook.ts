@@ -52,7 +52,7 @@ router.post("/", (req: Request, res: Response) => {
   // Acknowledge immediately — Facebook requires 200 within 20s
   res.sendStatus(200);
 
-  // Process each messaging event asynchronously
+  // Process each messaging event — fire and forget (do NOT await)
   for (const entry of entries) {
     const messaging = (entry["messaging"] as Record<string, unknown>[]) || [];
     for (const event of messaging) {
@@ -87,10 +87,14 @@ async function processEvent(event: Record<string, unknown>): Promise<void> {
 
   logger.info({ psid, text, payload }, "Processing message");
 
-  // Log inbound message and upsert client record
+  // Fire-and-forget DB logging — never block message sending on DB latency
   const inboundContent = text || payload || "(postback)";
-  await logMessage(psid, "inbound", inboundContent);
-  await upsertClient({ psid, lastMessage: inboundContent, status: "inquiry" });
+  logMessage(psid, "inbound", inboundContent).catch((err) =>
+    logger.error({ err, psid }, "Failed to log inbound message"),
+  );
+  upsertClient({ psid, lastMessage: inboundContent, status: "inquiry" }).catch((err) =>
+    logger.error({ err, psid }, "Failed to upsert client"),
+  );
 
   const session = getSession(psid);
 
@@ -98,16 +102,20 @@ async function processEvent(event: Record<string, unknown>): Promise<void> {
   if (session.step === "idle" && !payload) {
     const intent = detectIntent(text);
     if (!intent || intent === "greeting") {
+      logger.info({ psid }, "Sending welcome + intent menu");
       setSession(psid, { step: "choosing_intent" });
       await sendWithDelay(psid, randomPick(WELCOME_MESSAGES), 800);
       await sendWithDelayAndQuickReplies(psid, INTENT_MENU_TEXT, INTENT_QUICK_REPLIES, 1000);
+      logger.info({ psid }, "Welcome flow complete");
       return;
     }
     // If they typed something specific right away (e.g. "book" or "facial"), handle it
     setSession(psid, { step: "choosing_intent" });
   }
 
+  logger.info({ psid, text, payload }, "Routing to booking flow");
   await handleBookingFlow(psid, text, payload);
+  logger.info({ psid }, "Booking flow step complete");
 }
 
 export default router;
