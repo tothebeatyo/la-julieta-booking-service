@@ -3,8 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm, cp } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { rm } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -14,20 +13,6 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
-
-  // Build the React admin dashboard frontend first
-  const repoRoot = path.resolve(artifactDir, "../..");
-  const frontendDist = path.resolve(repoRoot, "artifacts/chatbot-landing/dist/public");
-  console.log("Building frontend...");
-  execSync("pnpm --filter @workspace/chatbot-landing run build", {
-    cwd: repoRoot,
-    stdio: "inherit",
-    env: { ...process.env, PORT: "3000", BASE_PATH: "/" },
-  });
-  // Copy built frontend into api-server dist so Express can serve it
-  const publicDir = path.resolve(distDir, "public");
-  await cp(frontendDist, publicDir, { recursive: true });
-  console.log("Frontend copied to dist/public");
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
