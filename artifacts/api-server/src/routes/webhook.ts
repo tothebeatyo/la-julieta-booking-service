@@ -18,8 +18,8 @@ const router: IRouter = Router();
 
 const VERIFY_TOKEN = process.env["VERIFY_TOKEN"];
 
-// GET /api/webhook — Facebook webhook verification
-router.get("/webhook", (req: Request, res: Response) => {
+// GET /webhook — Facebook webhook verification
+router.get("/", (req: Request, res: Response) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
@@ -35,8 +35,8 @@ router.get("/webhook", (req: Request, res: Response) => {
   }
 });
 
-// POST /api/webhook — receive messages
-router.post("/webhook", (req: Request, res: Response) => {
+// POST /webhook — receive messages
+router.post("/", (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
 
   logger.info({ body: JSON.stringify(body) }, "Incoming webhook event");

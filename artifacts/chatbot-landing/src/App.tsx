@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 
 const WEBHOOK_BASE = window.location.origin;
+const WEBHOOK_PATH = "/webhook";
 
 function StatusDot({ online }: { online: boolean | null }) {
   if (online === null) return (
@@ -46,7 +47,7 @@ function StepCard({ number, title, children }: { number: number; title: string; 
 
 export default function App() {
   const [online, setOnline] = useState<boolean | null>(null);
-  const webhookUrl = `${WEBHOOK_BASE}/api/webhook`;
+  const webhookUrl = `${WEBHOOK_BASE}${WEBHOOK_PATH}`;
 
   useEffect(() => {
     fetch("/api/healthz")
