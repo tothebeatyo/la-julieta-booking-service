@@ -1,7 +1,7 @@
 import { logger } from "../lib/logger";
 
 const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
-const GRAPH_API = "https://graph.facebook.com/v19.0/me/messages";
+const GRAPH_API = "https://graph.facebook.com/v22.0/me/messages";
 
 async function callSendAPI(body: object): Promise<void> {
   if (!PAGE_ACCESS_TOKEN) {
