@@ -400,6 +400,156 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
+          La Julieta Beauty Parañaque © {new Date().getFullYear()} ·{" "}
+          <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
+        </p>
+      </main>
+    </div>
+  );
+}
+
+// ─── Privacy Policy ───────────────────────────────────────────────────────────
+function PrivacyPolicy() {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-white text-lg shrink-0">💖</div>
+            <div>
+              <p className="font-bold text-sm leading-none">La Julieta Beauty</p>
+              <p className="text-xs text-muted-foreground">Privacy Policy</p>
+            </div>
+          </div>
+          <a href="/" className="text-xs text-muted-foreground hover:text-foreground transition-colors">← Back</a>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 space-y-8 text-foreground">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Privacy Policy</h1>
+          <p className="text-sm text-muted-foreground">Effective Date: April 20, 2026</p>
+        </div>
+
+        <p className="text-muted-foreground leading-relaxed">
+          La Julieta Beauty Parañaque ("we", "our", "us") respects your privacy and is committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your information when you interact with us through Facebook Messenger and our booking system.
+        </p>
+
+        {[
+          {
+            title: "1. Information We Collect",
+            body: (
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Full name</li>
+                <li>Mobile number</li>
+                <li>Appointment details (service, date, time)</li>
+                <li>Facebook public profile information (such as name and profile ID)</li>
+              </ul>
+            ),
+          },
+          {
+            title: "2. How We Use Your Information",
+            body: (
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                <li>Process and manage appointment bookings</li>
+                <li>Communicate with you regarding your inquiries or reservations</li>
+                <li>Provide customer support</li>
+                <li>Improve our services and customer experience</li>
+              </ul>
+            ),
+          },
+          {
+            title: "3. Data Sharing",
+            body: (
+              <p className="text-muted-foreground leading-relaxed">
+                We do not sell or rent your personal information. We may share your information only when necessary with internal staff of La Julieta Beauty Parañaque and service providers (e.g., booking systems such as AnyPlusPro).
+              </p>
+            ),
+          },
+          {
+            title: "4. Data Storage and Security",
+            body: (
+              <p className="text-muted-foreground leading-relaxed">
+                We take reasonable measures to protect your information from unauthorized access, disclosure, or misuse. However, no online system is completely secure, and we cannot guarantee absolute security.
+              </p>
+            ),
+          },
+          {
+            title: "5. Your Rights",
+            body: (
+              <>
+                <p className="text-muted-foreground leading-relaxed mb-2">You may request to:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Access your personal data</li>
+                  <li>Correct inaccurate information</li>
+                  <li>Request deletion of your data</li>
+                </ul>
+                <p className="text-muted-foreground leading-relaxed mt-2">To make a request, please contact us using the details below.</p>
+              </>
+            ),
+          },
+          {
+            title: "6. Use of Facebook Messenger",
+            body: (
+              <p className="text-muted-foreground leading-relaxed">
+                Our chatbot operates on Facebook Messenger. By interacting with our page, you also agree to Facebook's Data Policy. We only access the information necessary to respond to your inquiries and manage bookings.
+              </p>
+            ),
+          },
+          {
+            title: "7. Third-Party Services",
+            body: (
+              <p className="text-muted-foreground leading-relaxed">
+                We may use third-party tools (such as booking systems or automation platforms) to process your information securely. These services have their own privacy policies.
+              </p>
+            ),
+          },
+          {
+            title: "8. Changes to This Policy",
+            body: (
+              <p className="text-muted-foreground leading-relaxed">
+                We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated effective date.
+              </p>
+            ),
+          },
+        ].map(({ title, body }) => (
+          <section key={title} className="space-y-3">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            {body}
+          </section>
+        ))}
+
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">9. Contact Us</h2>
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-2 text-sm text-muted-foreground">
+            <p className="font-semibold text-foreground">La Julieta Beauty Parañaque</p>
+            <p>
+              Facebook:{" "}
+              <a
+                href="https://www.facebook.com/Lajulietabeautyparanaque"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                facebook.com/Lajulietabeautyparanaque
+              </a>
+            </p>
+            <p>
+              Email:{" "}
+              <a href="mailto:laizeltesporlas@gmail.com" className="text-primary hover:underline">
+                laizeltesporlas@gmail.com
+              </a>
+            </p>
+            <p>
+              Phone:{" "}
+              <a href="tel:+639156156588" className="text-primary hover:underline">
+                +63 915 615 6588
+              </a>
+            </p>
+          </div>
+        </section>
+
+        <p className="text-center text-xs text-muted-foreground pt-4">
           La Julieta Beauty Parañaque © {new Date().getFullYear()}
         </p>
       </main>
@@ -414,6 +564,7 @@ export default function App() {
   const handleLogin = (t: string) => setToken(t);
   const handleLogout = () => { localStorage.removeItem("admin_token"); setToken(null); };
 
+  if (window.location.pathname === "/privacy-policy") return <PrivacyPolicy />;
   if (!token) return <LoginScreen onLogin={handleLogin} />;
   return <Dashboard token={token} onLogout={handleLogout} />;
 }
