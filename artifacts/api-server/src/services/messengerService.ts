@@ -1,0 +1,84 @@
+import { logger } from "../lib/logger";
+
+const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
+const GRAPH_API = "https://graph.facebook.com/v19.0/me/messages";
+
+async function callSendAPI(body: object): Promise<void> {
+  if (!PAGE_ACCESS_TOKEN) {
+    logger.error("PAGE_ACCESS_TOKEN is not set");
+    return;
+  }
+  const response = await fetch(`${GRAPH_API}?access_token=${PAGE_ACCESS_TOKEN}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    logger.error({ status: response.status, body: text }, "Messenger API error");
+  }
+}
+
+export async function sendTypingOn(recipientId: string): Promise<void> {
+  await callSendAPI({
+    recipient: { id: recipientId },
+    sender_action: "typing_on",
+  });
+}
+
+export async function sendTypingOff(recipientId: string): Promise<void> {
+  await callSendAPI({
+    recipient: { id: recipientId },
+    sender_action: "typing_off",
+  });
+}
+
+export async function sendText(recipientId: string, text: string): Promise<void> {
+  await callSendAPI({
+    messaging_type: "RESPONSE",
+    recipient: { id: recipientId },
+    message: { text },
+  });
+}
+
+export async function sendTextWithQuickReplies(
+  recipientId: string,
+  text: string,
+  quickReplies: { title: string; payload: string }[],
+): Promise<void> {
+  await callSendAPI({
+    messaging_type: "RESPONSE",
+    recipient: { id: recipientId },
+    message: {
+      text,
+      quick_replies: quickReplies.map((qr) => ({
+        content_type: "text",
+        title: qr.title,
+        payload: qr.payload,
+      })),
+    },
+  });
+}
+
+export async function sendWithDelay(
+  recipientId: string,
+  text: string,
+  delayMs = 1500,
+): Promise<void> {
+  await sendTypingOn(recipientId);
+  await new Promise((r) => setTimeout(r, delayMs));
+  await sendTypingOff(recipientId);
+  await sendText(recipientId, text);
+}
+
+export async function sendWithDelayAndQuickReplies(
+  recipientId: string,
+  text: string,
+  quickReplies: { title: string; payload: string }[],
+  delayMs = 1500,
+): Promise<void> {
+  await sendTypingOn(recipientId);
+  await new Promise((r) => setTimeout(r, delayMs));
+  await sendTypingOff(recipientId);
+  await sendTextWithQuickReplies(recipientId, text, quickReplies);
+}
