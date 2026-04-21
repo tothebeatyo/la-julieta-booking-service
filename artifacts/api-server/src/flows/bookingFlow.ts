@@ -332,14 +332,13 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
     upsertClient({ psid, mobile }).catch(() => {});
     const s = getSession(psid);
     const summary =
-      `Yieee, halos tapos na! 💖 Pakicheck mo lang ha:\n\n` +
+      `Just to confirm 💖\n\n` +
       `📋 𝗕𝗼𝗼𝗸𝗶𝗻𝗴 𝗗𝗲𝘁𝗮𝗶𝗹𝘀\n` +
       `💆 Service: ${s.service}\n` +
       `📅 Date: ${s.date}\n` +
       `🕐 Time: ${s.time}\n` +
       `👤 Name: ${s.name}\n` +
-      `📱 Mobile: ${mobile}\n\n` +
-      `Tama lahat ba bes? Confirm mo na lang 😊`;
+      `📱 Mobile: ${mobile}`;
 
     await sendWithDelayAndQuickReplies(
       psid,
