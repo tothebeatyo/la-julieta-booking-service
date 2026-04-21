@@ -19,7 +19,7 @@ import {
   RETRY_MESSAGES,
   INTENT_QUICK_REPLIES,
   STAFF_MESSAGE,
-  PROMOS_TEXT,
+  ACTIVE_PROMOS,
   PROMOS_QUICK_REPLIES,
   randomPick,
 } from "./responses";
@@ -122,10 +122,13 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
       800,
     );
   } else if (payload === "INTENT_PROMOS" || /promo|discount|sale|deals|mura/i.test(text)) {
-    await sendWithDelay(psid, PROMOS_TEXT, 1000);
+    await sendWithDelay(psid, `Meron kaming ${ACTIVE_PROMOS.length} active promos ngayon! 🎉 Check mo lahat ha 👇`, 800);
+    for (const promo of ACTIVE_PROMOS) {
+      await sendWithDelay(psid, promo, 1200);
+    }
     await sendWithDelayAndQuickReplies(
       psid,
-      "Gusto mo bang i-avail ang promo? Book na agad bago maubusan! 🔥",
+      "Gusto mo bang i-avail ang kahit alin? Book na agad bago maubusan! 🔥",
       PROMOS_QUICK_REPLIES,
       1200,
     );

@@ -30,27 +30,44 @@ export const SERVICES_LIST = `Ito po ang mga available namin na services 💅
 
 Lahat po ay done ng licensed aestheticians namin! Gusto mo bang mag-book ng appointment? 😊`;
 
-export const PROMOS_TEXT = `✨ 𝗙𝗿𝗲𝗲 𝗙𝗮𝗰𝗶𝗮𝗹 𝗙𝗿𝗶𝗱𝗮𝘆𝘀! 😳💆‍♀️
+// ─── Active Promos ────────────────────────────────────────────────────────────
+// Add new promos here. Each one is sent as a separate Messenger message.
+export const ACTIVE_PROMOS: string[] = [
+  `🌸 𝗙𝗿𝗲𝗲 𝗙𝗮𝗰𝗶𝗮𝗹 𝗙𝗿𝗶𝗱𝗮𝘆𝘀! 😳💆‍♀️
 
-Kapag nag-avail ka ng alin man sa mga qualifying services namin, libre kang makakakuha ng:
+Avail any of these premium treatments every Friday and get a complimentary bundle FREE:
 
-🎁 Basic Facial
-🎁 Omega PDT
-🎁 Hydrating Sheet Mask
+🎁 Basic Facial + Omega PDT + Hydrating Sheet Mask
 
-Qualifying services:
-• 7D Ultraforma MP2
+Qualifying treatments:
+• 7D Ultraformer MP2
 • Thermagic
 • Fractional CO2 Laser
 • PRP Microneedling
 • AcneKléar Microneedling
 • Salmon DNA PDRN Microneedling
 
-⚠️ First 10 clients per day ONLY — mabilis maubos ang slots!
-📅 Every Friday, until April 30, 2026`;
+⚠️ First 10 clients per day ONLY
+📅 Every Friday — valid until April 30, 2026`,
+
+  `☀️ 𝗦𝘂𝗺𝗺𝗲𝗿 𝗚𝗹𝗼𝘄 𝗣𝗿𝗼𝗺𝗼 — 𝗔𝘃𝗮𝗶𝗹 𝟰, 𝗚𝗲𝘁 𝟭 𝗙𝗥𝗘𝗘! 🔥
+
+Facials. Laser. Slimming. Lahat in one deal!
+Avail 4 sessions, libre ang ika-5! Plus — 0% installment with BDO 💳
+
+✨ Ultraformer MP2 7D HIFU Pricing:
+• Cheeks & Jaw .............. ₱1,588
+• Double Chin & Neck .... ₱1,588
+• Full Face ......................... ₱1,888
+• Full Face & Neck ........... ₱2,888
+• Bra Line / Love Handle . ₱2,888
+• Tummy / Arms / Legs ... ₱3,488
+
+Para malaman pa ang mga detalye, i-message kami o mag-book na! 💕`,
+];
 
 export const PROMOS_QUICK_REPLIES = [
-  { title: "📅 Book a Friday Slot!", payload: "INTENT_BOOK" },
+  { title: "📅 Mag-Book Ngayon!", payload: "INTENT_BOOK" },
   { title: "💆 See Services", payload: "INTENT_SERVICES" },
   { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
 ];
