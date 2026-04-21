@@ -30,16 +30,24 @@ export const SERVICES_LIST = `Ito po ang mga available namin na services 💅
 
 Lahat po ay done ng licensed aestheticians namin! Gusto mo bang mag-book ng appointment? 😊`;
 
-export const PROMOS_TEXT = `Eto po ang pinaka-latest promo namin this April! 😳✨
+export const PROMOS_TEXT = `✨ 𝗙𝗿𝗲𝗲 𝗙𝗮𝗰𝗶𝗮𝗹 𝗙𝗿𝗶𝗱𝗮𝘆𝘀! 😳💆‍♀️
 
-🎁 𝗙𝗥𝗘𝗘 𝗙𝗮𝗰𝗶𝗮𝗹 + 𝗦𝗸𝗶𝗻 𝗕𝗼𝗼𝘀𝘁 𝗔𝗱𝗱-𝗢𝗻𝘀 — 𝗘𝗩𝗘𝗥𝗬 𝗙𝗥𝗜𝗗𝗔𝗬! 💆‍♀️
+Kapag nag-avail ka ng alin man sa mga qualifying services namin, libre kang makakakuha ng:
 
-Avail ka lang ng any premium treatment, libre na ang facial + skin boost add-ons! 💅
+🎁 Basic Facial
+🎁 Omega PDT
+🎁 Hydrating Sheet Mask
 
-⚠️ First 10 clients ONLY every Friday
-⏳ Valid until April 30, 2026
+Qualifying services:
+• 7D Ultraforma MP2
+• Thermagic
+• Fractional CO2 Laser
+• PRP Microneedling
+• AcneKléar Microneedling
+• Salmon DNA PDRN Microneedling
 
-Slots fill up super fast ha, so mas maganda mag-book na agad! 📆`;
+⚠️ First 10 clients per day ONLY — mabilis maubos ang slots!
+📅 Every Friday, until April 30, 2026`;
 
 export const PROMOS_QUICK_REPLIES = [
   { title: "📅 Book a Friday Slot!", payload: "INTENT_BOOK" },
