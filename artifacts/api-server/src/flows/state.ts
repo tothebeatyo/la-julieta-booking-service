@@ -2,6 +2,7 @@ export type BookingStep =
   | "idle"
   | "choosing_intent"
   | "choosing_service"
+  | "awaiting_book_decision"
   | "entering_date"
   | "entering_time"
   | "entering_name"

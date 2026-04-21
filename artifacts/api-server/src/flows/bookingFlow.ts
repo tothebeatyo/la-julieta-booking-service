@@ -21,6 +21,8 @@ import {
   STAFF_MESSAGE,
   ACTIVE_PROMOS,
   PROMOS_QUICK_REPLIES,
+  getPricelistForService,
+  getPromosForService,
   randomPick,
 } from "./responses";
 import { logger } from "../lib/logger";
@@ -30,6 +32,52 @@ const TALK_TO_STAFF_QR = [{ title: "👩 Talk to Staff", payload: "INTENT_STAFF"
 
 async function delay(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Send the pricelist for a service category, plus any matching active promos,
+ * then offer the customer a quick "Book Now" button. Sets the session so that
+ * the next BOOK_NOW click jumps straight to date entry with the service already set.
+ */
+async function sendPricingAndPromos(psid: string, service: string): Promise<void> {
+  const pricelist = getPricelistForService(service);
+  const matchingPromos = getPromosForService(service);
+
+  // Save the service in session so BOOK_NOW jumps right to date entry
+  setSession(psid, { step: "awaiting_book_decision", service });
+  upsertClient({ psid, service }).catch(() => {});
+
+  if (pricelist) {
+    await sendWithDelay(psid, pricelist, 1200);
+  } else {
+    await sendWithDelay(
+      psid,
+      `Para po sa ${service}, mas ok kung makausap mo ang aming staff para sa exact pricing 💕`,
+      1000,
+    );
+  }
+
+  if (matchingPromos.length > 0) {
+    await sendWithDelay(
+      psid,
+      `Good news! May ${matchingPromos.length} promo${matchingPromos.length > 1 ? "s" : ""} kami na pwede mo i-avail dito 🎉`,
+      900,
+    );
+    for (const promo of matchingPromos) {
+      await sendWithDelay(psid, promo, 1100);
+    }
+  }
+
+  await sendWithDelayAndQuickReplies(
+    psid,
+    `Gusto mo na bang mag-book ng ${service}? 😊`,
+    [
+      { title: "📅 Mag-Book Na", payload: "BOOK_NOW" },
+      { title: "💆 Other Services", payload: "INTENT_SERVICES" },
+      { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
+    ],
+    1000,
+  );
 }
 
 export async function handleBookingFlow(psid: string, text: string, payload?: string): Promise<void> {
@@ -57,6 +105,18 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
   logger.info({ psid, step: session.step, text, payload }, "Booking flow step");
 
+  // BOOK_NOW from a pricelist message — user wants to book the saved service
+  if (payload === "BOOK_NOW" && session.service) {
+    setSession(psid, { step: "entering_date", retryCount: 0 });
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Sige po, mag-book tayo ng ${session.service}! 🌸 ${randomPick(DATE_PROMPTS)}`,
+      TALK_TO_STAFF_QR,
+      1000,
+    );
+    return;
+  }
+
   switch (session.step) {
     case "idle":
     case "choosing_intent": {
@@ -65,6 +125,11 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     }
     case "choosing_service": {
       await handleServiceChoice(psid, text, payload);
+      break;
+    }
+    case "awaiting_book_decision": {
+      // User received pricelist + promos; route their next message
+      await handleIntentChoice(psid, text, payload);
       break;
     }
     case "entering_date": {
@@ -137,17 +202,10 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     await sendWithDelay(psid, STAFF_MESSAGE, 1000);
     resetSession(psid);
   } else {
-    // Try to detect a service mention directly
+    // Try to detect a service mention directly — show pricelist + matching promos
     const detectedService = detectService(text);
     if (detectedService) {
-      setSession(psid, { step: "entering_date", service: detectedService });
-      upsertClient({ psid, service: detectedService }).catch(() => {});
-      await sendWithDelayAndQuickReplies(
-        psid,
-        `Ooh, ${detectedService}! Great choice po 🌸 ${randomPick(DATE_PROMPTS)}`,
-        TALK_TO_STAFF_QR,
-        1200,
-      );
+      await sendPricingAndPromos(psid, detectedService);
     } else {
       setSession(psid, { step: "choosing_intent", retryCount: 0 });
       await sendWithDelayAndQuickReplies(
@@ -170,14 +228,7 @@ async function handleServiceChoice(psid: string, text: string, payload?: string)
   }
 
   if (service) {
-    setSession(psid, { step: "entering_date", service });
-    upsertClient({ psid, service }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${service}! Maganda po yan 🌸 ${randomPick(DATE_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1200,
-    );
+    await sendPricingAndPromos(psid, service);
   } else {
     const s = getSession(psid);
     if (s.retryCount >= 2) {

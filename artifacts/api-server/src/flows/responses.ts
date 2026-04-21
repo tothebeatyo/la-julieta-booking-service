@@ -224,3 +224,213 @@ export const RETRY_MESSAGES = [
 export function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
+
+// ─── Per-category Pricelists ──────────────────────────────────────────────────
+// Sent when a customer asks about a specific service or category.
+
+export const PRICELIST_FACIALS = `💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦 — Pricelist po (in ₱)
+
+• Basic Facial — 299
+• Diamond Peel — 499
+• HydraGlow Facial — 999
+• Oxygeneo 3-in-1 Facial — 1,399
+• Backne Facial — 1,599
+• Underarm Spa — 599
+
+Add-ons:
+• Omega PDT Led — 99
+• Hydrating Sheet Mask — 99`;
+
+export const PRICELIST_MICRONEEDLING = `💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚 — Pricelist po (in ₱)
+
+• Korean BB Glow — 599
+• AcneKléar Microneedling — 1,099
+• PRP Microneedling — 1,399
+• Salmon DNA Microneedling — 1,899
+• Stretch Marks Microneedling — 2,099
+
+Add-ons:
+• Korean BB Glow Tint — 199
+• Whitening Stem Cell — 299
+• Hyaluronic Aqua Stem Cell — 299`;
+
+export const PRICELIST_LASER = `🔥 𝗟𝗔𝗦𝗘𝗥 — Pricelist po (in ₱)
+
+• Skin Rejuvè (nape/elbows/knees) — 799
+• Skin Rejuvè Laser Face — 999
+• Pico Carbon Peel Laser — 999
+• Intense UA Whitening Laser — 899
+• Intense UA Hair Removal Laser — 899
+• Upper / Lower Lips Hair Removal — 599`;
+
+export const PRICELIST_HAIR_REMOVAL = `✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Pricelist po (in ₱)
+
+• Small Area — 499
+• Medium Area — 899
+• Large Area — 1,299
+
+Plus laser-based hair removal:
+• Intense UA Hair Removal Laser — 899
+• Upper / Lower Lips — 599`;
+
+export const PRICELIST_HIFU = `🎯 𝗦𝗞𝗜𝗡 𝗧𝗜𝗚𝗛𝗧𝗘𝗡𝗜𝗡𝗚 / 𝗛𝗜𝗙𝗨 — Pricelist po (in ₱)
+
+7D Ultraforma (HIFU):
+• Cheeks & Jaw — 1,799
+• Double Chin & Neck — 1,799
+• Full Face — 2,499
+• Full Face + Double Chin + Neck — 2,999
+• Tummy / Love Handle — 2,999
+• Arms / Thighs — 3,999
+
+Thermagic:
+• Eyes (100 shots) — 4,999
+• Forehead (150) — 3,099
+• Cheeks & Chin (400) — 6,999
+• Double Chin & Neck (400) — 6,999
+• Full Face (600) — 8,999
+• Full Face & Neck (900) — 12,999
+• Additional shot (50) — 600
+
+ExiSlim:
+• Cheeks & Jaw — 699
+• Double Chin & Neck — 699
+• Full Face — 1,499
+• Full Face & Neck — 1,899
+• Tummy — 2,499
+• Arms / Thighs — 1,899
+• Full Back — 2,999`;
+
+export const PRICELIST_SLIMMING = `🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝗦𝗢𝗟𝗩𝗘 — Pricelist po (in ₱)
+
+Lemon Bottle:
+• Cheeks & Jaw — 2,099
+• Double Chin — 2,099
+• Bra Line — 3,099
+• Love Handle — 3,099
+• Arms / Thighs / Tummy — 3,999
+
+Mesolipo:
+• Cheeks & Jaw — 1,099
+• Double Chin — 1,099
+• Arms / Bra Line / Thighs — 2,099
+• Tummy / Love Handle — 2,499`;
+
+export const PRICELIST_IV_DRIP = `💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 (Glutathione & Multivitamins) — Pricelist po (in ₱)
+
+Per session:
+• Immune Booster — 499
+• Premium Bella Drip — 699
+• VIP Celestial Drip — 999
+• Snow White Drip — 1,299
+• Ultimate Goddess Drip — 1,199
+• Ultimate Snow White Drip — 1,599
+
+Add-on Boosters:
+• Vitamin C — 199
+• B-Complex — 299
+• Collagen — 399
+• Placenta — 499
+• L-Carnitine — 599`;
+
+export const PRICELIST_WARTS = `🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Pricelist po (in ₱)
+
+• Mild — 599
+• Moderate — 799
+• Severe — 999`;
+
+// Maps a detected service name to its category bucket
+export const SERVICE_TO_CATEGORY: Record<string, string> = {
+  // Facials
+  "Basic Facial": "facials",
+  "Diamond Peel": "facials",
+  "HydraGlow Facial": "facials",
+  "Oxygeneo Facial": "facials",
+  "Backne Facial": "facials",
+  "Underarm Spa": "facials",
+  "Facial": "facials",
+  // Microneedling
+  "Korean BB Glow": "microneedling",
+  "PRP Microneedling": "microneedling",
+  "AcneKléar Microneedling": "microneedling",
+  "Salmon DNA Microneedling": "microneedling",
+  "Stretch Marks Microneedling": "microneedling",
+  "Microneedling": "microneedling",
+  // Laser
+  "Pico Carbon Peel Laser": "laser",
+  "Skin Rejuvè Laser": "laser",
+  "Whitening Laser": "laser",
+  "Lips Hair Removal": "laser",
+  "Laser": "laser",
+  // Hair removal
+  "Diode Hair Removal": "hair_removal",
+  "Hair Removal": "hair_removal",
+  "Laser Hair Removal": "hair_removal",
+  // HIFU / Tightening
+  "7D Ultraforma HIFU": "hifu",
+  "Thermagic": "hifu",
+  "ExiSlim": "hifu",
+  "Skin Tightening": "hifu",
+  "HIFU / Skin Tightening": "hifu",
+  // Slimming
+  "Lemon Bottle Fat Dissolve": "slimming",
+  "Mesolipo": "slimming",
+  "Slimming": "slimming",
+  "Slimming / Fat Dissolve": "slimming",
+  // IV Drip
+  "Immune Booster Drip": "iv_drip",
+  "Premium Bella Drip": "iv_drip",
+  "VIP Celestial Drip": "iv_drip",
+  "Snow White Drip": "iv_drip",
+  "Ultimate Goddess Drip": "iv_drip",
+  "Glutathione IV Drip": "iv_drip",
+  "IV Drip": "iv_drip",
+  "Vitamin C Booster": "iv_drip",
+  "B-Complex Booster": "iv_drip",
+  "Collagen Booster": "iv_drip",
+  "Placenta Booster": "iv_drip",
+  "L-Carnitine Booster": "iv_drip",
+  // Warts
+  "Warts Removal": "warts",
+};
+
+export const CATEGORY_TO_PRICELIST: Record<string, string> = {
+  facials: PRICELIST_FACIALS,
+  microneedling: PRICELIST_MICRONEEDLING,
+  laser: PRICELIST_LASER,
+  hair_removal: PRICELIST_HAIR_REMOVAL,
+  hifu: PRICELIST_HIFU,
+  slimming: PRICELIST_SLIMMING,
+  iv_drip: PRICELIST_IV_DRIP,
+  warts: PRICELIST_WARTS,
+};
+
+// ACTIVE_PROMOS indices that match each category:
+// 0 = Free Facial Fridays
+// 1 = Summer Glow HIFU Avail 4 Get 1
+// 2 = IV Gluta Drip 10+4 FREE
+// 3 = Summer Promo 4.4 (Diamond Peel/Oxygeneo/PRP/Slimming)
+// 4 = Lemon Bottle Fat Dissolving
+export const CATEGORY_TO_PROMO_INDICES: Record<string, number[]> = {
+  facials: [0, 3],
+  microneedling: [0, 3],
+  laser: [3],
+  hair_removal: [],
+  hifu: [0, 1, 3],
+  slimming: [3, 4],
+  iv_drip: [2],
+  warts: [],
+};
+
+export function getPricelistForService(service: string): string | null {
+  const cat = SERVICE_TO_CATEGORY[service];
+  if (!cat) return null;
+  return CATEGORY_TO_PRICELIST[cat] ?? null;
+}
+
+export function getPromosForService(service: string): string[] {
+  const cat = SERVICE_TO_CATEGORY[service];
+  if (!cat) return [];
+  const indices = CATEGORY_TO_PROMO_INDICES[cat] ?? [];
+  return indices.map((i) => ACTIVE_PROMOS[i]).filter(Boolean);
+}
