@@ -30,14 +30,22 @@ export const SERVICES_LIST = `Ito po ang mga available namin na services 💅
 
 Lahat po ay done ng licensed aestheticians namin! Gusto mo bang mag-book ng appointment? 😊`;
 
-export const PROMOS_TEXT = `Eto po ang latest promos namin! 🎉
+export const PROMOS_TEXT = `Eto po ang pinaka-latest promo namin this April! 😳✨
 
-🌸 Buy 1 Get 1 Facial - valid hanggang end of month!
-💥 20% off Laser Hair Removal tuwing Lunes-Miyerkules
-✨ Free consultation sa lahat ng first-time clients!
-💖 Birthday treat - 15% off sa birthday month mo!
+🎁 𝗙𝗥𝗘𝗘 𝗙𝗮𝗰𝗶𝗮𝗹 + 𝗦𝗸𝗶𝗻 𝗕𝗼𝗼𝘀𝘁 𝗔𝗱𝗱-𝗢𝗻𝘀 — 𝗘𝗩𝗘𝗥𝗬 𝗙𝗥𝗜𝗗𝗔𝗬! 💆‍♀️
 
-Para sa updates, follow na rin po ang aming Facebook page 💕 Gusto mo bang mag-book?`;
+Avail ka lang ng any premium treatment, libre na ang facial + skin boost add-ons! 💅
+
+⚠️ First 10 clients ONLY every Friday
+⏳ Valid until April 30, 2026
+
+Slots fill up super fast ha, so mas maganda mag-book na agad! 📆`;
+
+export const PROMOS_QUICK_REPLIES = [
+  { title: "📅 Book a Friday Slot!", payload: "INTENT_BOOK" },
+  { title: "💆 See Services", payload: "INTENT_SERVICES" },
+  { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
+];
 
 export const STAFF_MESSAGE =
   "Sige po! Let me connect you sa isa sa aming staff agad 💖 Sandali lang ha, may sumasagot na sa iyo. Salamat sa iyong patience! 🙏";

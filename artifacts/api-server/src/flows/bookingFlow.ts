@@ -19,6 +19,8 @@ import {
   RETRY_MESSAGES,
   INTENT_QUICK_REPLIES,
   STAFF_MESSAGE,
+  PROMOS_TEXT,
+  PROMOS_QUICK_REPLIES,
   randomPick,
 } from "./responses";
 import { logger } from "../lib/logger";
@@ -120,20 +122,12 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
       800,
     );
   } else if (payload === "INTENT_PROMOS" || /promo|discount|sale|deals|mura/i.test(text)) {
-    await sendWithDelay(
-      psid,
-      "Eto po ang latest promos namin! 🎉\n\n🌸 Buy 1 Get 1 Facial — valid hanggang end of month!\n💥 20% off Laser Hair Removal tuwing Lunes–Miyerkules\n✨ Free consultation for first-time clients!\n💖 Birthday treat — 15% off sa birthday month mo!\n\nPara sa updates, follow na rin ang aming FB page 💕",
-      1500,
-    );
-    await delay(800);
+    await sendWithDelay(psid, PROMOS_TEXT, 1000);
     await sendWithDelayAndQuickReplies(
       psid,
-      "Gusto mo bang mag-book para sa isang promo? 😊",
-      [
-        { title: "📅 Mag-Book", payload: "INTENT_BOOK" },
-        { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
-      ],
-      1000,
+      "Gusto mo bang i-avail ang promo? Book na agad bago maubusan! 🔥",
+      PROMOS_QUICK_REPLIES,
+      1200,
     );
   } else if (payload === "INTENT_STAFF" || /staff|human|agent|tao/i.test(text)) {
     await sendWithDelay(psid, STAFF_MESSAGE, 1000);
