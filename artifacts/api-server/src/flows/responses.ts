@@ -1,14 +1,15 @@
 // Varied, human-sounding responses so the bot doesn't feel repetitive
 
 export const WELCOME_MESSAGES = [
-  "Hii! Welcome sa La Julieta Beauty Parañaque! 💕 Kamusta ka? Paano kita matutulungan ngayon?",
-  "Hello po! Salamat sa pagmessage sa La Julieta Beauty ✨ Anong maipagagawa ko para sa iyo?",
-  "Hi there! Welcome sa La Julieta Beauty 💖 Glad na nandito ka! Ano po ang maipagagawa namin?",
-  "Helo po! La Julieta Beauty Parañaque here 🌸 Super excited na matulungan ka! Ano ang kailangan mo?",
+  "Hiii bes! 💕 Welcome sa La Julieta Beauty Parañaque! Kamusta ka? Anong maipagagawa namin para sayo today? 😊",
+  "Helloo po! ✨ Salamat sa pag-message sa amin! Ano po kaya ang gusto mong i-try? 💖",
+  "Hi sis! 🌸 La Julieta Beauty here po. Glad super na nag-message ka! Paano kita matutulungan?",
+  "Hiii ate! 💖 Welcome sa La Julieta Beauty Parañaque. Ano po ba kailangan mo, treatment ba o info lang muna? 😊",
+  "Yieee, hii! 💕 Salamat sa pag-reach out sa La Julieta Beauty! Kausap mo ako, sagot ko lahat ng tanong mo ✨",
 ];
 
 export const INTENT_MENU_TEXT =
-  "Pwede kita tulungan dito ha 😊 Ano po ba ang kailangan mo?";
+  "Eto po, pumili lang sa baba ha — para mas mabilis 😊 Ano kaya ang kailangan mo?";
 
 export const INTENT_QUICK_REPLIES = [
   { title: "📅 Mag-Book", payload: "INTENT_BOOK" },
@@ -160,13 +161,14 @@ export const PROMOS_QUICK_REPLIES = [
 ];
 
 export const STAFF_MESSAGE =
-  "Sige po! Let me connect you sa isa sa aming staff agad 💖 Sandali lang ha, may sumasagot na sa iyo. Salamat sa iyong patience! 🙏";
+  "Sige po, kakausapin ka ng staff namin agad 💖 Sandali lang ha, may sasagot na sa iyo in a few minutes. Salamat sa patience mo! 🙏";
 
 export const BOOK_START_MESSAGES = [
-  "Sure po 💖 Let's get you booked! Alin pong service ang gusto mo?",
-  "Noted po ✨ Mag-book tayo! Anong treatment ang interesado ka?",
-  "Got it po! Let me check lang ha — anong service ang gusto mo i-book?",
-  "Sige sige 😊 Anong service ang gusto mo?",
+  "Yieee, mag-book tayo! 💖 Alin po sa services namin ang gusto mong i-try?",
+  "Sige po, andito ako para tulungan ka 😊 Anong treatment kaya gusto mo?",
+  "Okay sis, let's go! ✨ Pumili ka muna sa baba ha — alin gusto mo?",
+  "Sure po! Mag-book na tayo 💕 Anong service interesado ka?",
+  "Noted bes, i-book na natin agad 😊 Anong gusto mo i-avail?",
 ];
 
 export const SERVICES_QUICK_REPLIES = [
@@ -192,33 +194,38 @@ export const PAYLOAD_TO_SERVICE: Record<string, string> = {
 };
 
 export const DATE_PROMPTS = [
-  "Ayos po yun! 🗓️ Anong araw ka available? Pwede kang mag-type ng date (e.g. 'April 25', 'tomorrow', 'Saturday').",
-  "Perfect choice po! 🌸 Kelan mo gustong pumunta? Type lang ang preferred date mo ha.",
-  "Great po! Saan ka available na araw? Pwede i-type yung date (e.g. 'bukas', 'May 5', 'Friday').",
+  "Yieee, exciting! 🗓️ Kelan ka kaya available? Type mo lang yung date — pwede 'bukas', 'Saturday', or 'April 25' ha.",
+  "Sige po! 🌸 Anong araw mo gustong pumunta? Pwede mo i-type yung petsa, like 'bukas' o 'April 28'.",
+  "Okay sis! 📅 Kelan kaya gusto mong i-schedule? Type lang yung araw — kahit 'next Monday' lang ok na.",
+  "Got it bes! 💖 Saang araw ka free? Pwede 'tomorrow', 'Sabado', o specific date.",
 ];
 
 export const TIME_PROMPTS = [
-  "Got it po! 🕐 Anong oras mo gusto? (e.g. '10am', '2pm', '3:30 PM')",
-  "Noted po ✨ Anong preferred time mo? Pwede mula 9am hanggang 7pm.",
-  "Sure! Anong oras ka available? (e.g. '11am', '4pm', 'hapon')",
+  "Aliw, naka-set na yung araw! 🕐 Anong oras mo gusto? (e.g. '10am', '2pm', or 'hapon' lang)",
+  "Noted po ✨ Anong time kaya gusto mo? Open kami 9am–7pm. Type mo lang yung preferred time mo!",
+  "Sige po, last na detalye 😊 Anong oras best for you? '11am', '3pm', kahit 'umaga' or 'tanghali' ok lang.",
+  "Yies! 🕐 Pakitype lang anong oras gusto mo, ate. (Halimbawa: '1pm', '4:30pm', 'morning')",
 ];
 
 export const NAME_PROMPTS = [
-  "Let me get your details na ha 😊 Ano po ang iyong pangalan?",
-  "Almost done! Ano po ang full name mo para sa reservation?",
-  "Sige po! Para ma-confirm namin, ano ang pangalan mo?",
+  "Aliw 💖 Last na po, ano kaya pangalan mo para malagay sa reservation?",
+  "Yay almost done! 😊 Ano pa ngang pangalan mo, ate?",
+  "Sige po, para ma-confirm ko booking mo — anong pangalan mo?",
+  "Bes, last details na lang! 💕 Ano nga ulit yung name mo? (full name pls 🙏)",
 ];
 
 export const MOBILE_PROMPTS = [
-  "Thanks po! 📱 Anong mobile number ang pwedeng i-contact sa iyo?",
-  "Almost there! Anong number mo para mapadala namin ang confirmation?",
-  "Noted po! Pwede bang ibigay ang iyong contact number? 😊",
+  "Salamat po! 📱 Anong number kaya pwede ka ma-contact? Para we can text you reminders!",
+  "Almost there ate! 😊 Anong mobile mo? Para mapadalhan ka namin ng confirmation later.",
+  "Yies last na talaga! 💖 Pakishare lang yung mobile number mo (e.g. 09171234567).",
+  "Sige po, mobile number na lang kelangan namin 📲 Ano kaya yun?",
 ];
 
 export const RETRY_MESSAGES = [
-  "Hmm, di ko na-gets yung sagot mo 😅 Pwede ulit? ",
-  "Sorry po ha, medyo di ko maintindihan. Ulit lang? ",
-  "Oops, parang may mali akong nagets 😊 Try mo ulit? ",
+  "Hala, di ko na-gets yung sagot mo 😅 Ulit lang please ha? ",
+  "Sorry bes, medyo di ko maintindihan eh. Pwede ulit? 🙏 ",
+  "Oops, may bago akong type-an 😊 I-try mo ulit ha — ",
+  "Hmm di ko po sure kung anong ibig sabihin 😅 Pwede mo ulit-an? ",
 ];
 
 export function randomPick<T>(arr: T[]): T {

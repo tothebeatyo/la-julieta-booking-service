@@ -60,7 +60,7 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
   if (matchingPromos.length > 0) {
     await sendWithDelay(
       psid,
-      `Good news! May ${matchingPromos.length} promo${matchingPromos.length > 1 ? "s" : ""} kami na pwede mo i-avail dito 🎉`,
+      `Wait may bonus pa! 🎉 May ${matchingPromos.length} promo${matchingPromos.length > 1 ? "s" : ""} kami na pwede mo isama dito bes 💖`,
       900,
     );
     for (const promo of matchingPromos) {
@@ -70,7 +70,7 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
 
   await sendWithDelayAndQuickReplies(
     psid,
-    `Gusto mo na bang mag-book ng ${service}? 😊`,
+    `So bes, gusto mo na ba i-book ${service} mo? 😊`,
     [
       { title: "📅 Mag-Book Na", payload: "BOOK_NOW" },
       { title: "💆 Other Services", payload: "INTENT_SERVICES" },
@@ -96,7 +96,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     setSession(psid, { step: "choosing_intent" });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Sige po, babalik tayo sa simula! 😊 Ano ang maipagagawa ko?",
+      "Sige bes, balik tayo sa simula 😊 Anong gusto mong gawin?",
       INTENT_QUICK_REPLIES,
       1000,
     );
@@ -110,7 +110,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     setSession(psid, { step: "entering_date", retryCount: 0 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `Sige po, mag-book tayo ng ${session.service}! 🌸 ${randomPick(DATE_PROMPTS)}`,
+      `Yieee, sige! Mag-book na tayo ng ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -176,25 +176,25 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   } else if (payload === "INTENT_SERVICES" || /services|treatment|menu|listahan/i.test(text)) {
     await sendWithDelay(
       psid,
-      "Eto po ang mga available namin na services 💅\n\n✨ HydraFacial\n🔥 Laser Hair Removal\n🍋 Chemical Peel\n💆 Facial Treatment\n🎯 RF Skin Tightening\n💉 Microneedling\n💊 Botox / Filler\n💧 Whitening Drip\n\nGusto mo bang mag-book? 😊",
-      1500,
+      "Yaass! May madami kaming services 💅 Pumili ka lang sa categories ha — papakita ko sayo lahat ng prices kasama ang promos 💖",
+      1200,
     );
-    await delay(800);
+    await delay(600);
     setSession(psid, { step: "choosing_service" });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Alin ang gusto mong i-try? 💕",
+      "Alin sa mga ito gusto mong tingnan? 💕",
       [...SERVICES_QUICK_REPLIES, { title: "👩 Talk to Staff", payload: "INTENT_STAFF" }],
       800,
     );
   } else if (payload === "INTENT_PROMOS" || /promo|discount|sale|deals|mura/i.test(text)) {
-    await sendWithDelay(psid, `Meron kaming ${ACTIVE_PROMOS.length} active promos ngayon! 🎉 Check mo lahat ha 👇`, 800);
+    await sendWithDelay(psid, `Yieee, may ${ACTIVE_PROMOS.length} active promos kami ngayon! 🎉 Check mo lahat ha bes, baka may matipid ka 💖👇`, 800);
     for (const promo of ACTIVE_PROMOS) {
       await sendWithDelay(psid, promo, 1200);
     }
     await sendWithDelayAndQuickReplies(
       psid,
-      "Gusto mo bang i-avail ang kahit alin? Book na agad bago maubusan! 🔥",
+      "Aliw diba? 🔥 Gusto mo na ba i-avail? Book mo na agad bago maubusan ate!",
       PROMOS_QUICK_REPLIES,
       1200,
     );
@@ -332,14 +332,14 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
     upsertClient({ psid, mobile }).catch(() => {});
     const s = getSession(psid);
     const summary =
-      `Okay po! Let me check lang ha 😊\n\n` +
-      `📋 Booking Details:\n` +
+      `Yieee, halos tapos na! 💖 Pakicheck mo lang ha:\n\n` +
+      `📋 𝗕𝗼𝗼𝗸𝗶𝗻𝗴 𝗗𝗲𝘁𝗮𝗶𝗹𝘀\n` +
       `💆 Service: ${s.service}\n` +
       `📅 Date: ${s.date}\n` +
       `🕐 Time: ${s.time}\n` +
       `👤 Name: ${s.name}\n` +
       `📱 Mobile: ${mobile}\n\n` +
-      `Tama na ba lahat? 😊`;
+      `Tama lahat ba bes? Confirm mo na lang 😊`;
 
     await sendWithDelayAndQuickReplies(
       psid,
@@ -390,14 +390,14 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
         resetSession(psid);
         await sendText(
           psid,
-          `Yay! Confirmed na po ang iyong booking! 🎉💖\n\n` +
+          `Yieee CONFIRMED na po booking mo! 🎉💖\n\n` +
             `Reference No: ${result.referenceNo}\n\n` +
-            `Abangan na lang po ang confirmation message namin. Para sa mga katanungan, pwede mo kaming i-message ulit. Salamat po at see you soon sa La Julieta Beauty! 🌸`,
+            `Abangan mo lang yung confirmation text/message namin sa iyong number ha. Pag may tanong ka, message mo lang ulit ako 💕 Salamat ate, see you soon sa La Julieta Beauty! 🌸`,
         );
         await delay(1000);
         await sendWithDelayAndQuickReplies(
           psid,
-          "May iba pa ba akong maipagagawa para sa iyo? 😊",
+          "May iba pa ba bes? 😊",
           INTENT_QUICK_REPLIES,
           800,
         );
@@ -409,7 +409,7 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
       resetSession(psid);
       await sendWithDelayAndQuickReplies(
         psid,
-        "Ay, may nangyari po 😅 Di ko ma-process ang booking mo ngayon. Subukan ulit mamaya o kausapin ang aming staff para matulungan ka agad ha.",
+        "Hala bes, may glitch ata ngayon 😅 Di ko ma-process yung booking mo eh. Pakiulit na lang mamaya, or kausapin mo na rin agad yung staff namin para matulungan ka asap ha 🙏",
         [
           { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
           { title: "🔄 Try Again", payload: "INTENT_BOOK" },
@@ -421,14 +421,14 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
     setSession(psid, { step: "choosing_service", service: undefined, date: undefined, time: undefined, name: undefined, mobile: undefined, retryCount: 0 });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Sige po, i-edit natin! 😊 Alin pong service ang gusto mo?",
+      "Sige po, i-edit natin 😊 Alin ulit yung service na gusto mo?",
       SERVICES_QUICK_REPLIES,
       1000,
     );
   } else {
     await sendWithDelayAndQuickReplies(
       psid,
-      "Confirm ba ang booking? 😊",
+      "I-confirm na ba natin ate? 😊",
       [
         { title: "✅ Confirm", payload: "CONFIRM_BOOKING" },
         { title: "✏️ Edit", payload: "EDIT_BOOKING" },
