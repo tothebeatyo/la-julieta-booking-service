@@ -5,6 +5,7 @@ import { getSession, setSession } from "../flows/state";
 import {
   sendWithDelay,
   sendWithDelayAndQuickReplies,
+  getProfileName,
 } from "../services/messengerService";
 import { detectIntent } from "../flows/intentDetector";
 import {
@@ -95,6 +96,17 @@ async function processEvent(event: Record<string, unknown>): Promise<void> {
   upsertClient({ psid, lastMessage: inboundContent, status: "inquiry" }).catch((err) =>
     logger.error({ err, psid }, "Failed to upsert client"),
   );
+
+  // Fetch Facebook profile name in the background and save it (only sets it if not already set)
+  getProfileName(psid)
+    .then((name) => {
+      if (name) {
+        upsertClient({ psid, name }).catch((err) =>
+          logger.error({ err, psid }, "Failed to save FB name"),
+        );
+      }
+    })
+    .catch(() => {});
 
   const session = getSession(psid);
 

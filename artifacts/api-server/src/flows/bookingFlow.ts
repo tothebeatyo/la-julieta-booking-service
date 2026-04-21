@@ -24,6 +24,7 @@ import {
   randomPick,
 } from "./responses";
 import { logger } from "../lib/logger";
+import { upsertClient } from "../services/clientService";
 
 const TALK_TO_STAFF_QR = [{ title: "👩 Talk to Staff", payload: "INTENT_STAFF" }];
 
@@ -140,6 +141,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     const detectedService = detectService(text);
     if (detectedService) {
       setSession(psid, { step: "entering_date", service: detectedService });
+      upsertClient({ psid, service: detectedService }).catch(() => {});
       await sendWithDelayAndQuickReplies(
         psid,
         `Ooh, ${detectedService}! Great choice po 🌸 ${randomPick(DATE_PROMPTS)}`,
@@ -169,6 +171,7 @@ async function handleServiceChoice(psid: string, text: string, payload?: string)
 
   if (service) {
     setSession(psid, { step: "entering_date", service });
+    upsertClient({ psid, service }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
       `${service}! Maganda po yan 🌸 ${randomPick(DATE_PROMPTS)}`,
@@ -202,6 +205,7 @@ async function handleDateEntry(psid: string, text: string): Promise<void> {
 
   if (dateValue) {
     setSession(psid, { step: "entering_time", date: dateValue, retryCount: 0 });
+    upsertClient({ psid, bookingDate: dateValue }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
       `${dateValue} — noted po! 📅 ${randomPick(TIME_PROMPTS)}`,
@@ -226,6 +230,7 @@ async function handleTimeEntry(psid: string, text: string): Promise<void> {
 
   if (timePattern.test(text) || text.trim().length >= 2) {
     setSession(psid, { step: "entering_name", time: text.trim(), retryCount: 0 });
+    upsertClient({ psid, bookingTime: text.trim() }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
       `${text.trim()} — perfect po! 🕐 ${randomPick(NAME_PROMPTS)}`,
@@ -248,6 +253,7 @@ async function handleNameEntry(psid: string, text: string): Promise<void> {
   const name = text.trim();
   if (name.length >= 2 && /[a-zA-ZÀ-ÿ]/.test(name)) {
     setSession(psid, { step: "entering_mobile", name, retryCount: 0 });
+    upsertClient({ psid, name }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
       `Hi ${name}! Nice to meet you 😊 ${randomPick(MOBILE_PROMPTS)}`,
@@ -272,6 +278,7 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
 
   if (mobilePattern.test(mobile)) {
     setSession(psid, { step: "confirming", mobile, retryCount: 0 });
+    upsertClient({ psid, mobile }).catch(() => {});
     const s = getSession(psid);
     const summary =
       `Okay po! Let me check lang ha 😊\n\n` +

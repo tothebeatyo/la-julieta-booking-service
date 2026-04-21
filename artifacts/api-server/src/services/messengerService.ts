@@ -2,6 +2,26 @@ import { logger } from "../lib/logger";
 
 const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
 const GRAPH_API = "https://graph.facebook.com/v22.0/me/messages";
+const GRAPH_PROFILE = "https://graph.facebook.com/v22.0";
+
+/** Fetch the user's Facebook display name from their PSID. Returns null on failure. */
+export async function getProfileName(psid: string): Promise<string | null> {
+  if (!PAGE_ACCESS_TOKEN) return null;
+  try {
+    const url = `${GRAPH_PROFILE}/${psid}?fields=first_name,last_name&access_token=${PAGE_ACCESS_TOKEN}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      logger.warn({ psid, status: response.status }, "Could not fetch FB profile");
+      return null;
+    }
+    const data = (await response.json()) as { first_name?: string; last_name?: string };
+    const name = `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim();
+    return name.length > 0 ? name : null;
+  } catch (err) {
+    logger.warn({ err, psid }, "Error fetching FB profile");
+    return null;
+  }
+}
 
 async function callSendAPI(body: object): Promise<void> {
   if (!PAGE_ACCESS_TOKEN) {
