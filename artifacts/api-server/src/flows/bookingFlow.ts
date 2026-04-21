@@ -110,7 +110,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     setSession(psid, { step: "entering_date", retryCount: 0 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `Yieee, sige! Mag-book na tayo ng ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
+      `Sige po, mag-book na tayo ng ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -176,7 +176,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   } else if (payload === "INTENT_SERVICES" || /services|treatment|menu|listahan/i.test(text)) {
     await sendWithDelay(
       psid,
-      "Yaass! May madami kaming services 💅 Pumili ka lang sa categories ha — papakita ko sayo lahat ng prices kasama ang promos 💖",
+      "Sige po! Madami kaming services 💅 Pumili lang po sa categories — ipapakita ko sa'yo lahat ng prices kasama ang available promos 💖",
       1200,
     );
     await delay(600);
@@ -188,13 +188,13 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
       800,
     );
   } else if (payload === "INTENT_PROMOS" || /promo|discount|sale|deals|mura/i.test(text)) {
-    await sendWithDelay(psid, `Yieee, may ${ACTIVE_PROMOS.length} active promos kami ngayon! 🎉 Check mo lahat ha bes, baka may matipid ka 💖👇`, 800);
+    await sendWithDelay(psid, `May ${ACTIVE_PROMOS.length} active promos po kami ngayon 🎉 Pakicheck na lang lahat — baka may matipid kayo 💖👇`, 800);
     for (const promo of ACTIVE_PROMOS) {
       await sendWithDelay(psid, promo, 1200);
     }
     await sendWithDelayAndQuickReplies(
       psid,
-      "Aliw diba? 🔥 Gusto mo na ba i-avail? Book mo na agad bago maubusan ate!",
+      "Sige po, gusto niyo na ba i-avail? Book na po agad bago maubusan 🔥",
       PROMOS_QUICK_REPLIES,
       1200,
     );

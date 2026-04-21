@@ -5,7 +5,7 @@ export const WELCOME_MESSAGES = [
   "Helloo po! ✨ Salamat sa pag-message sa amin! Ano po kaya ang gusto mong i-try? 💖",
   "Hi sis! 🌸 La Julieta Beauty here po. Glad super na nag-message ka! Paano kita matutulungan?",
   "Hiii ate! 💖 Welcome sa La Julieta Beauty Parañaque. Ano po ba kailangan mo, treatment ba o info lang muna? 😊",
-  "Yieee, hii! 💕 Salamat sa pag-reach out sa La Julieta Beauty! Kausap mo ako, sagot ko lahat ng tanong mo ✨",
+  "Hi po! 💕 Salamat sa pag-reach out sa La Julieta Beauty. Kausap mo ako — sagot ko lahat ng tanong mo ✨",
 ];
 
 export const INTENT_MENU_TEXT =
@@ -164,11 +164,11 @@ export const STAFF_MESSAGE =
   "Sige po, kakausapin ka ng staff namin agad 💖 Sandali lang ha, may sasagot na sa iyo in a few minutes. Salamat sa patience mo! 🙏";
 
 export const BOOK_START_MESSAGES = [
-  "Yieee, mag-book tayo! 💖 Alin po sa services namin ang gusto mong i-try?",
-  "Sige po, andito ako para tulungan ka 😊 Anong treatment kaya gusto mo?",
-  "Okay sis, let's go! ✨ Pumili ka muna sa baba ha — alin gusto mo?",
-  "Sure po! Mag-book na tayo 💕 Anong service interesado ka?",
-  "Noted bes, i-book na natin agad 😊 Anong gusto mo i-avail?",
+  "Sige po, mag-book tayo 💖 Alin sa services namin ang gusto mong i-try?",
+  "Sige po, andito ako para tulungan ka 😊 Anong treatment ang gusto mo?",
+  "Okay po, pumili lang sa baba ha — alin ang gusto mo?",
+  "Sure po, mag-book na tayo 💕 Anong service ang interesado ka?",
+  "Noted po, i-book na natin 😊 Anong service ang gusto mong i-avail?",
 ];
 
 export const SERVICES_QUICK_REPLIES = [
@@ -194,31 +194,31 @@ export const PAYLOAD_TO_SERVICE: Record<string, string> = {
 };
 
 export const DATE_PROMPTS = [
-  "Yieee, exciting! 🗓️ Kelan ka kaya available? Type mo lang yung date — pwede 'bukas', 'Saturday', or 'April 25' ha.",
-  "Sige po! 🌸 Anong araw mo gustong pumunta? Pwede mo i-type yung petsa, like 'bukas' o 'April 28'.",
-  "Okay sis! 📅 Kelan kaya gusto mong i-schedule? Type lang yung araw — kahit 'next Monday' lang ok na.",
-  "Got it bes! 💖 Saang araw ka free? Pwede 'tomorrow', 'Sabado', o specific date.",
+  "Sige po 🗓️ Kelan po kayo available? Pwede mong i-type yung date — like 'bukas', 'Saturday', or 'April 25'.",
+  "Noted po 🌸 Anong araw po kayo gustong pumunta? Pwede mong i-type yung petsa (e.g. 'bukas' or 'April 28').",
+  "Okay po 📅 Kelan niyo po gustong i-schedule? I-type lang yung araw — kahit 'next Monday' okay lang.",
+  "Got it po 💖 Saan pong araw kayo free? Pwede 'tomorrow', 'Sabado', o specific date.",
 ];
 
 export const TIME_PROMPTS = [
-  "Aliw, naka-set na yung araw! 🕐 Anong oras mo gusto? (e.g. '10am', '2pm', or 'hapon' lang)",
-  "Noted po ✨ Anong time kaya gusto mo? Open kami 9am–7pm. Type mo lang yung preferred time mo!",
-  "Sige po, last na detalye 😊 Anong oras best for you? '11am', '3pm', kahit 'umaga' or 'tanghali' ok lang.",
-  "Yies! 🕐 Pakitype lang anong oras gusto mo, ate. (Halimbawa: '1pm', '4:30pm', 'morning')",
+  "Sige po 🕐 Anong oras po ang preferred niyo? (e.g. '10am', '2pm', or 'hapon')",
+  "Noted po ✨ Anong time po ang gusto niyo? Open kami 9am–7pm.",
+  "Okay po 😊 Anong oras po ang best for you? Pwede '11am', '3pm', or 'umaga'/'tanghali'.",
+  "Sige po 🕐 Pakitype na lang po anong oras niyo gusto. (e.g. '1pm', '4:30pm', or 'morning')",
 ];
 
 export const NAME_PROMPTS = [
-  "Aliw 💖 Last na po, ano kaya pangalan mo para malagay sa reservation?",
-  "Yay almost done! 😊 Ano pa ngang pangalan mo, ate?",
-  "Sige po, para ma-confirm ko booking mo — anong pangalan mo?",
-  "Bes, last details na lang! 💕 Ano nga ulit yung name mo? (full name pls 🙏)",
+  "Sige po 💖 Pakibigay na lang po ang full name niyo para sa reservation.",
+  "Noted po 😊 Ano po ang pangalan niyo?",
+  "Okay po, para ma-confirm ang booking — ano po ang pangalan niyo?",
+  "Sige po 💕 Pakitype na lang po ang full name niyo, please.",
 ];
 
 export const MOBILE_PROMPTS = [
-  "Salamat po! 📱 Anong number kaya pwede ka ma-contact? Para we can text you reminders!",
-  "Almost there ate! 😊 Anong mobile mo? Para mapadalhan ka namin ng confirmation later.",
-  "Yies last na talaga! 💖 Pakishare lang yung mobile number mo (e.g. 09171234567).",
-  "Sige po, mobile number na lang kelangan namin 📲 Ano kaya yun?",
+  "Salamat po 📱 Pakibigay naman po ng mobile number na pwedeng i-contact, para mapadalhan namin kayo ng confirmation.",
+  "Noted po 😊 Ano po ang mobile number niyo? Para mapadalhan namin kayo ng reminders.",
+  "Sige po 💖 Pakishare na lang po ng mobile number niyo (e.g. 09171234567).",
+  "Okay po 📲 Last detail na lang — anong mobile number niyo?",
 ];
 
 export const RETRY_MESSAGES = [
