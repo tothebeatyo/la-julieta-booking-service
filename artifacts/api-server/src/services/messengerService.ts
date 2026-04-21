@@ -6,19 +6,42 @@ const GRAPH_PROFILE = "https://graph.facebook.com/v22.0";
 
 /** Fetch the user's Facebook display name from their PSID. Returns null on failure. */
 export async function getProfileName(psid: string): Promise<string | null> {
-  if (!PAGE_ACCESS_TOKEN) return null;
+  if (!PAGE_ACCESS_TOKEN) {
+    logger.warn({ psid }, "getProfileName: PAGE_ACCESS_TOKEN missing");
+    return null;
+  }
   try {
     const url = `${GRAPH_PROFILE}/${psid}?fields=first_name,last_name&access_token=${PAGE_ACCESS_TOKEN}`;
+    logger.info({ psid }, "getProfileName: calling Graph API");
     const response = await fetch(url);
+    const bodyText = await response.text();
     if (!response.ok) {
-      logger.warn({ psid, status: response.status }, "Could not fetch FB profile");
+      logger.warn(
+        { psid, status: response.status, body: bodyText.slice(0, 300) },
+        "getProfileName: non-OK response from Graph API",
+      );
       return null;
     }
-    const data = (await response.json()) as { first_name?: string; last_name?: string };
+    let data: { first_name?: string; last_name?: string; error?: unknown };
+    try {
+      data = JSON.parse(bodyText);
+    } catch {
+      logger.warn({ psid, body: bodyText.slice(0, 300) }, "getProfileName: invalid JSON");
+      return null;
+    }
+    if (data.error) {
+      logger.warn({ psid, error: data.error }, "getProfileName: Graph API returned error");
+      return null;
+    }
     const name = `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim();
-    return name.length > 0 ? name : null;
+    if (name.length === 0) {
+      logger.warn({ psid, data }, "getProfileName: empty name in response");
+      return null;
+    }
+    logger.info({ psid, name }, "getProfileName: SUCCESS — fetched FB name");
+    return name;
   } catch (err) {
-    logger.warn({ err, psid }, "Error fetching FB profile");
+    logger.warn({ err, psid }, "getProfileName: exception");
     return null;
   }
 }

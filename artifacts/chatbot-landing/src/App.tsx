@@ -352,7 +352,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                           onClick={() => setSelectedClient(c)}
                           className="text-left hover:text-primary transition-colors"
                         >
-                          <p className="font-medium text-foreground">{c.name ?? <span className="text-muted-foreground italic">Unknown</span>}</p>
+                          <p className="font-medium text-foreground">{c.name ?? <span className="text-muted-foreground">FB User •••{c.psid.slice(-6)}</span>}</p>
                           <p className="text-xs text-muted-foreground">{new Date(c.updated_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                         </button>
                       </td>
