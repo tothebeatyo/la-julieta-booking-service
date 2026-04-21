@@ -1,12 +1,63 @@
 const SERVICE_KEYWORDS: Record<string, string[]> = {
-  "HydraFacial": ["hydrafacial", "hydra facial", "hydra"],
-  "Laser Hair Removal": ["laser", "hair removal", "laser hair"],
-  "Chemical Peel": ["chemical peel", "peel", "exfoliation"],
-  "Facial Treatment": ["facial", "face treatment", "facial treatment", "basic facial"],
-  "RF Skin Tightening": ["rf", "skin tightening", "radiofrequency", "tightening"],
+  // Facials
+  "Basic Facial": ["basic facial"],
+  "Diamond Peel": ["diamond peel"],
+  "HydraGlow Facial": ["hydraglow", "hydra glow", "hydrafacial", "hydra facial"],
+  "Oxygeneo Facial": ["oxygeneo", "oxygen facial", "3-in-1 facial", "3 in 1 facial"],
+  "Backne Facial": ["backne", "back facial"],
+  "Underarm Spa": ["underarm spa", "underarm", "kilikili"],
+  "Facial": ["facial", "face treatment"],
+
+  // Microneedling
+  "Korean BB Glow": ["bb glow", "korean bb"],
+  "PRP Microneedling": ["prp"],
+  "AcneKléar Microneedling": ["acneklear", "acne klear", "acnekléar", "acne microneedling"],
+  "Salmon DNA Microneedling": ["salmon", "salmon dna", "pdrn"],
+  "Stretch Marks Microneedling": ["stretch mark", "stretch marks"],
   "Microneedling": ["microneedle", "microneedling", "dermaroller"],
-  "Botox / Filler": ["botox", "filler", "injection", "anti-aging", "anti aging"],
-  "Whitening Drip": ["whitening drip", "glutathione", "drip", "iv drip"],
+
+  // Laser
+  "Pico Carbon Peel Laser": ["pico", "carbon peel", "carbon laser"],
+  "Skin Rejuvè Laser": ["skin rejuve", "rejuvè", "skin rejuvé", "rejuve laser"],
+  "Whitening Laser": ["whitening laser", "intense ua whitening"],
+  "Laser Hair Removal": ["laser hair", "hair removal laser", "ua hair removal"],
+  "Lips Hair Removal": ["lips hair", "upper lip", "lower lip"],
+  "Laser": ["laser"],
+
+  // Diode hair removal
+  "Diode Hair Removal": ["diode", "hair removal"],
+
+  // HIFU / Skin Tightening
+  "7D Ultraforma HIFU": ["7d", "ultraforma", "ultraformer", "hifu"],
+  "Thermagic": ["thermagic", "thermage"],
+  "ExiSlim": ["exislim", "exi slim"],
+  "Skin Tightening": ["skin tightening", "tightening", "rf", "lifting"],
+
+  // Slimming
+  "Lemon Bottle Fat Dissolve": ["lemon bottle", "lemon"],
+  "Mesolipo": ["mesolipo", "meso lipo", "meso"],
+  "Slimming": ["slimming", "fat dissolve", "fat dissolving", "emshape", "vline", "v-line"],
+
+  // IV Drips
+  "Immune Booster Drip": ["immune booster", "immune drip"],
+  "Premium Bella Drip": ["bella", "premium bella"],
+  "VIP Celestial Drip": ["celestial", "vip celestial"],
+  "Snow White Drip": ["snow white"],
+  "Ultimate Goddess Drip": ["goddess", "ultimate goddess"],
+  "Glutathione IV Drip": ["glutathione", "gluta", "iv drip", "drip", "whitening drip"],
+
+  // Boosters
+  "Vitamin C Booster": ["vitamin c", "vit c"],
+  "B-Complex Booster": ["b-complex", "b complex"],
+  "Collagen Booster": ["collagen"],
+  "Placenta Booster": ["placenta"],
+  "L-Carnitine Booster": ["l-carnitine", "carnitine"],
+
+  // Warts
+  "Warts Removal": ["warts", "wart"],
+
+  // Botox / Filler (kept for inquiries even if not on menu)
+  "Botox / Filler": ["botox", "filler"],
 };
 
 const DATE_KEYWORDS = ["today", "tomorrow", "ngayon", "bukas", "monday", "tuesday",

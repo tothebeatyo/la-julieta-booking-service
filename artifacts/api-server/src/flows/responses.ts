@@ -17,18 +17,60 @@ export const INTENT_QUICK_REPLIES = [
   { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
 ];
 
-export const SERVICES_LIST = `Ito po ang mga available namin na services 💅
+export const SERVICES_LIST = `Ito po ang full menu namin 💅 (prices in ₱)
 
-✨ HydraFacial
-🔥 Laser Hair Removal
-🍋 Chemical Peel
-💆 Facial Treatment
-🎯 RF Skin Tightening
-💉 Microneedling
-💊 Botox / Filler
-💧 Whitening Drip (Glutathione)
+💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦
+• Basic Facial — 299
+• Diamond Peel — 499
+• HydraGlow Facial — 999
+• Oxygeneo 3-in-1 Facial — 1,399
+• Backne Facial — 1,599
+• Underarm Spa — 599
+Add-ons: Omega PDT Led 99 · Hydrating Sheet Mask 99
 
-Lahat po ay done ng licensed aestheticians namin! Gusto mo bang mag-book ng appointment? 😊`;
+💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚
+• Korean BB Glow — 599
+• AcneKléar Microneedling — 1,099
+• PRP Microneedling — 1,399
+• Salmon DNA Microneedling — 1,899
+• Stretch Marks Microneedling — 2,099
+Add-ons: BB Glow Tint 199 · Whitening Stem Cell 299 · Hyaluronic Aqua Stem Cell 299
+
+🔥 𝗟𝗔𝗦𝗘𝗥
+• Skin Rejuvè (nape/elbows/knees) — 799
+• Skin Rejuvè Laser Face — 999
+• Pico Carbon Peel Laser — 999
+• Intense UA Whitening Laser — 899
+• Intense UA Hair Removal Laser — 899
+• Upper / Lower Lips Hair Removal — 599
+
+✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟
+• Small Area — 499
+• Medium Area — 899
+• Large Area — 1,299
+
+🎯 𝗦𝗞𝗜𝗡 𝗧𝗜𝗚𝗛𝗧𝗘𝗡𝗜𝗡𝗚 / 𝗛𝗜𝗙𝗨
+7D Ultraforma (HIFU): Cheeks/Jaw 1,799 · Double Chin/Neck 1,799 · Full Face 2,499 · Full Face+Chin+Neck 2,999 · Tummy/Love Handle 2,999 · Arms/Thighs 3,999
+Thermagic: Eyes 4,999 · Forehead 3,099 · Cheeks/Chin 6,999 · Double Chin/Neck 6,999 · Full Face 8,999 · Full Face+Neck 12,999
+ExiSlim: Cheeks/Jaw 699 · Double Chin/Neck 699 · Full Face 1,499 · Tummy 2,499 · Arms/Thighs 1,899 · Full Back 2,999
+
+🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝗦𝗢𝗟𝗩𝗘
+Lemon Bottle: Cheeks/Jaw 2,099 · Double Chin 2,099 · Bra Line/Love Handle 3,099 · Arms/Thighs/Tummy 3,999
+Mesolipo: Cheeks/Jaw 1,099 · Double Chin 1,099 · Arms/Bra Line/Thighs 2,099 · Tummy/Love Handle 2,499
+
+💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 (Glutathione & Multivitamins)
+• Immune Booster — 499
+• Premium Bella Drip — 699
+• VIP Celestial Drip — 999
+• Snow White Drip — 1,299
+• Ultimate Goddess Drip — 1,199
+• Ultimate Snow White Drip — 1,599
+Add-ons: Vitamin C 199 · B-Complex 299 · Collagen 399 · Placenta 499 · L-Carnitine 599
+
+🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟
+Mild 599 · Moderate 799 · Severe 999
+
+Lahat po done by licensed aestheticians 💖 Gusto mo bang mag-book? 😊`;
 
 // ─── Active Promos ────────────────────────────────────────────────────────────
 // Add new promos here. Each one is sent as a separate Messenger message.
@@ -128,25 +170,25 @@ export const BOOK_START_MESSAGES = [
 ];
 
 export const SERVICES_QUICK_REPLIES = [
-  { title: "HydraFacial", payload: "SVC_HYDRAFACIAL" },
-  { title: "Laser Hair Removal", payload: "SVC_LASER" },
-  { title: "Chemical Peel", payload: "SVC_PEEL" },
-  { title: "Facial Treatment", payload: "SVC_FACIAL" },
-  { title: "RF Tightening", payload: "SVC_RF" },
+  { title: "Facials", payload: "SVC_FACIAL" },
   { title: "Microneedling", payload: "SVC_MICRO" },
-  { title: "Botox / Filler", payload: "SVC_BOTOX" },
-  { title: "Whitening Drip", payload: "SVC_DRIP" },
+  { title: "Laser", payload: "SVC_LASER" },
+  { title: "Hair Removal", payload: "SVC_HAIR" },
+  { title: "HIFU / Tightening", payload: "SVC_HIFU" },
+  { title: "Slimming", payload: "SVC_SLIM" },
+  { title: "IV Drip", payload: "SVC_DRIP" },
+  { title: "Warts Removal", payload: "SVC_WARTS" },
 ];
 
 export const PAYLOAD_TO_SERVICE: Record<string, string> = {
-  SVC_HYDRAFACIAL: "HydraFacial",
-  SVC_LASER: "Laser Hair Removal",
-  SVC_PEEL: "Chemical Peel",
-  SVC_FACIAL: "Facial Treatment",
-  SVC_RF: "RF Skin Tightening",
+  SVC_FACIAL: "Facial",
   SVC_MICRO: "Microneedling",
-  SVC_BOTOX: "Botox / Filler",
-  SVC_DRIP: "Whitening Drip",
+  SVC_LASER: "Laser",
+  SVC_HAIR: "Hair Removal",
+  SVC_HIFU: "HIFU / Skin Tightening",
+  SVC_SLIM: "Slimming / Fat Dissolve",
+  SVC_DRIP: "IV Drip",
+  SVC_WARTS: "Warts Removal",
 };
 
 export const DATE_PROMPTS = [
