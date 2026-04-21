@@ -95,6 +95,20 @@ Choose your treatment (price per session):
 • Mesolipo Body + ExiSlim Emshape ........... ₱3,499
 
 Mix and match para sa glow + snatch combo mo! 💕`,
+
+  `🍋 𝗟𝗲𝗺𝗼𝗻 𝗕𝗼𝘁𝘁𝗹𝗲 𝗙𝗮𝘁 𝗗𝗶𝘀𝘀𝗼𝗹𝘃𝗶𝗻𝗴 𝗣𝗿𝗼𝗺𝗼! 💛
+
+Stubborn fat doesn't disappear with wishful thinking — kailangan ng tamang solution! ✨
+
+Only ₱567 per mL — perfect for targeting:
+✔️ Double Chin
+✔️ Jawline
+✔️ Arms
+✔️ Tummy
+✔️ Bra Line
+✔️ Love Handles
+
+Goodbye stubborn fat, hello snatched silhouette! 💕 Book mo na ang consultation mo!`,
 ];
 
 export const PROMOS_QUICK_REPLIES = [
