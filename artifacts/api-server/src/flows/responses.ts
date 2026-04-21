@@ -81,6 +81,20 @@ IV Drip Menu & Pricing (per session):
 • L-Carnitine ........................... ₱5,990
 
 ⏳ Valid until April 30, 2026 only — huwag palampasin! 🙏`,
+
+  `💎 𝗦𝘂𝗺𝗺𝗲𝗿 𝗣𝗿𝗼𝗺𝗼 𝟰.𝟰 — 𝗔𝘃𝗮𝗶𝗹 𝟰 𝗦𝗲𝘀𝘀𝗶𝗼𝗻𝘀, 𝗚𝗲𝘁 𝟭 𝗙𝗥𝗘𝗘! ✨
+
+Pay sa 3 months installment, 0% interest with BDO 💳
+
+Choose your treatment (price per session):
+• Diamond Peel HydraGlow ............................. ₱999
+• Oxygeneo Pico Carbon Laser ..................... ₱1,699
+• PRP Face Skin Rejuvé Laser ....................... ₱1,699
+• ExiSlim Vline / ExiSlim Body ....................... ₱1,899
+• Mesolipo Vline + ExiSlim Emshape ........... ₱2,499
+• Mesolipo Body + ExiSlim Emshape ........... ₱3,499
+
+Mix and match para sa glow + snatch combo mo! 💕`,
 ];
 
 export const PROMOS_QUICK_REPLIES = [
