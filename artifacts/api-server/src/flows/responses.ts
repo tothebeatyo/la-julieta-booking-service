@@ -64,6 +64,23 @@ Avail 4 sessions, libre ang ika-5! Plus — 0% installment with BDO 💳
 • Tummy / Arms / Legs ... ₱3,488
 
 Para malaman pa ang mga detalye, i-message kami o mag-book na! 💕`,
+
+  `💉 𝗦𝘂𝗺𝗺𝗲𝗿 𝗚𝗹𝗼𝘄 𝟰.𝟰 — 𝗜𝗩 𝗚𝗹𝘂𝘁𝗮 𝗗𝗿𝗶𝗽 𝗣𝗮𝗰𝗸𝗮𝗴𝗲! ☀️
+
+Buy 10 sessions, get 4 MORE for FREE — 14 sessions total! 🎁
+Available in installment din po 💳
+
+IV Drip Menu & Pricing (per session):
+• Immune Booster Drip ........ ₱4,990
+• Premium Bella Drip ............ ₱6,990
+• VIP Celestial Drip ............... ₱9,990
+• Snow White Drip ............... ₱12,990
+• B-Complex ........................... ₱2,990
+• Collagen ................................ ₱3,990
+• Placenta ................................ ₱4,990
+• L-Carnitine ........................... ₱5,990
+
+⏳ Valid until April 30, 2026 only — huwag palampasin! 🙏`,
 ];
 
 export const PROMOS_QUICK_REPLIES = [
