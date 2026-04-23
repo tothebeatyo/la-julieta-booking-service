@@ -1,15 +1,12 @@
 import { logger } from "../lib/logger";
 import { logMessage } from "./clientService";
-import { getSession } from "../flows/state";
 
 const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
-const INSTAGRAM_TOKEN = process.env["INSTAGRAM_TOKEN"];
 const GRAPH_API = "https://graph.facebook.com/v22.0/me/messages";
 const GRAPH_PROFILE = "https://graph.facebook.com/v22.0";
 
-function tokenForPsid(psid: string): string | undefined {
-  const session = getSession(psid);
-  if (session.channel === "instagram" && INSTAGRAM_TOKEN) return INSTAGRAM_TOKEN;
+// Instagram Messaging API uses the same Page Access Token as Messenger
+function tokenForPsid(_psid: string): string | undefined {
   return PAGE_ACCESS_TOKEN;
 }
 
