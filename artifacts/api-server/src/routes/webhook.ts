@@ -37,17 +37,19 @@ router.get("/", (req: Request, res: Response) => {
   }
 });
 
-// POST /webhook — receive messages
+// POST /webhook — receive messages (Messenger + Instagram)
 router.post("/", (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
+  const object = body["object"] as string | undefined;
 
   logger.info({ body: JSON.stringify(body) }, "Incoming webhook event");
 
-  if (body["object"] !== "page") {
+  if (object !== "page" && object !== "instagram") {
     res.sendStatus(404);
     return;
   }
 
+  const channel: "messenger" | "instagram" = object === "instagram" ? "instagram" : "messenger";
   const entries = (body["entry"] as Record<string, unknown>[]) || [];
 
   // Acknowledge immediately — Facebook requires 200 within 20s
@@ -57,14 +59,14 @@ router.post("/", (req: Request, res: Response) => {
   for (const entry of entries) {
     const messaging = (entry["messaging"] as Record<string, unknown>[]) || [];
     for (const event of messaging) {
-      processEvent(event).catch((err) => {
+      processEvent(event, channel).catch((err) => {
         logger.error({ err }, "Error processing messaging event");
       });
     }
   }
 });
 
-async function processEvent(event: Record<string, unknown>): Promise<void> {
+async function processEvent(event: Record<string, unknown>, channel: "messenger" | "instagram" = "messenger"): Promise<void> {
   const sender = event["sender"] as { id: string } | undefined;
   if (!sender?.id) return;
 
@@ -86,23 +88,24 @@ async function processEvent(event: Record<string, unknown>): Promise<void> {
   const postbackPayload = postback?.payload;
   const payload = quickReplyPayload ?? postbackPayload;
 
-  logger.info({ psid, text, payload }, "Processing message");
+  logger.info({ psid, channel, text, payload }, "Processing message");
 
   // Fire-and-forget DB logging — never block message sending on DB latency
   const inboundContent = text || payload || "(postback)";
-  logMessage(psid, "inbound", inboundContent).catch((err) =>
+  const channelTag = channel === "instagram" ? "[IG] " : "";
+  logMessage(psid, "inbound", channelTag + inboundContent).catch((err) =>
     logger.error({ err, psid }, "Failed to log inbound message"),
   );
-  upsertClient({ psid, lastMessage: inboundContent, status: "inquiry" }).catch((err) =>
+  upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel }).catch((err) =>
     logger.error({ err, psid }, "Failed to upsert client"),
   );
 
-  // Fetch Facebook profile name in the background and save it (only sets it if not already set)
+  // Fetch profile name in the background (works for Messenger; Instagram may not return name)
   getProfileName(psid)
     .then((name) => {
       if (name) {
         upsertClient({ psid, name }).catch((err) =>
-          logger.error({ err, psid }, "Failed to save FB name"),
+          logger.error({ err, psid }, "Failed to save profile name"),
         );
       }
     })

@@ -15,6 +15,7 @@ interface Client {
   booking_date: string | null;
   booking_time: string | null;
   reference_no: string | null;
+  channel: "messenger" | "instagram" | null;
   created_at: string;
   updated_at: string;
 }
@@ -286,7 +287,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
         {/* Webhook URL */}
         <div className="bg-card border border-border rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-muted-foreground mb-1">Facebook Webhook URL</p>
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Messenger & Instagram Webhook URL</p>
             <code className="text-sm font-mono text-foreground break-all">{webhookUrl}</code>
           </div>
           <button
@@ -352,7 +353,15 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                           onClick={() => setSelectedClient(c)}
                           className="text-left hover:text-primary transition-colors"
                         >
-                          <p className="font-medium text-foreground">{c.name ?? <span className="text-muted-foreground">FB User •••{c.psid.slice(-6)}</span>}</p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-foreground">{c.name ?? <span className="text-muted-foreground">User •••{c.psid.slice(-6)}</span>}</p>
+                            <span
+                              title={c.channel === "instagram" ? "Instagram" : "Messenger"}
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${c.channel === "instagram" ? "bg-pink-100 text-pink-600" : "bg-blue-100 text-blue-600"}`}
+                            >
+                              {c.channel === "instagram" ? "IG" : "FB"}
+                            </span>
+                          </div>
                           <p className="text-xs text-muted-foreground">{new Date(c.updated_at).toLocaleDateString("en-PH", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
                         </button>
                       </td>

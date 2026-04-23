@@ -2,6 +2,7 @@ import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 
 export type ClientStatus = "inquiry" | "confirmed" | "needs_followup" | "cancelled";
+export type ClientChannel = "messenger" | "instagram";
 
 export async function upsertClient(data: {
   psid: string;
@@ -13,11 +14,12 @@ export async function upsertClient(data: {
   bookingDate?: string;
   bookingTime?: string;
   referenceNo?: string;
+  channel?: ClientChannel;
 }): Promise<void> {
   try {
     await pool.query(
-      `INSERT INTO clients (psid, name, mobile, status, last_message, service, booking_date, booking_time, reference_no, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      `INSERT INTO clients (psid, name, mobile, status, last_message, service, booking_date, booking_time, reference_no, channel, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
        ON CONFLICT (psid) DO UPDATE SET
          name = COALESCE($2, clients.name),
          mobile = COALESCE($3, clients.mobile),
@@ -27,6 +29,7 @@ export async function upsertClient(data: {
          booking_date = COALESCE($7, clients.booking_date),
          booking_time = COALESCE($8, clients.booking_time),
          reference_no = COALESCE($9, clients.reference_no),
+         channel = COALESCE($10, clients.channel),
          updated_at = NOW()`,
       [
         data.psid,
@@ -38,6 +41,7 @@ export async function upsertClient(data: {
         data.bookingDate ?? null,
         data.bookingTime ?? null,
         data.referenceNo ?? null,
+        data.channel ?? null,
       ]
     );
   } catch (err) {
