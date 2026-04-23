@@ -90,6 +90,9 @@ async function processEvent(event: Record<string, unknown>, channel: "messenger"
 
   logger.info({ psid, channel, text, payload }, "Processing message");
 
+  // Persist channel in session so all send functions know which token to use
+  setSession(psid, { channel });
+
   // Fire-and-forget DB logging — never block message sending on DB latency
   const inboundContent = text || payload || "(postback)";
   const channelTag = channel === "instagram" ? "[IG] " : "";

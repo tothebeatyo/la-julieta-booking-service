@@ -10,6 +10,8 @@ export type BookingStep =
   | "confirming"
   | "done";
 
+export type MessageChannel = "messenger" | "instagram";
+
 export interface UserState {
   step: BookingStep;
   service?: string;
@@ -18,13 +20,14 @@ export interface UserState {
   name?: string;
   mobile?: string;
   retryCount: number;
+  channel: MessageChannel;
 }
 
 const userSessions = new Map<string, UserState>();
 
 export function getSession(psid: string): UserState {
   if (!userSessions.has(psid)) {
-    userSessions.set(psid, { step: "idle", retryCount: 0 });
+    userSessions.set(psid, { step: "idle", retryCount: 0, channel: "messenger" });
   }
   return userSessions.get(psid)!;
 }
@@ -35,5 +38,6 @@ export function setSession(psid: string, state: Partial<UserState>): void {
 }
 
 export function resetSession(psid: string): void {
-  userSessions.set(psid, { step: "idle", retryCount: 0 });
+  const current = getSession(psid);
+  userSessions.set(psid, { step: "idle", retryCount: 0, channel: current.channel ?? "messenger" });
 }

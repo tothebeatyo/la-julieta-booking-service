@@ -1,9 +1,17 @@
 import { logger } from "../lib/logger";
 import { logMessage } from "./clientService";
+import { getSession } from "../flows/state";
 
 const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
+const INSTAGRAM_TOKEN = process.env["INSTAGRAM_TOKEN"];
 const GRAPH_API = "https://graph.facebook.com/v22.0/me/messages";
 const GRAPH_PROFILE = "https://graph.facebook.com/v22.0";
+
+function tokenForPsid(psid: string): string | undefined {
+  const session = getSession(psid);
+  if (session.channel === "instagram" && INSTAGRAM_TOKEN) return INSTAGRAM_TOKEN;
+  return PAGE_ACCESS_TOKEN;
+}
 
 /** Fetch the user's Facebook display name from their PSID. Returns null on failure. */
 export async function getProfileName(psid: string): Promise<string | null> {
@@ -47,23 +55,24 @@ export async function getProfileName(psid: string): Promise<string | null> {
   }
 }
 
-async function callSendAPI(body: object): Promise<void> {
-  if (!PAGE_ACCESS_TOKEN) {
-    logger.error("PAGE_ACCESS_TOKEN is not set");
+async function callSendAPI(body: object, psid?: string): Promise<void> {
+  const token = psid ? tokenForPsid(psid) : PAGE_ACCESS_TOKEN;
+  if (!token) {
+    logger.error("No access token available for sending message");
     return;
   }
-  logger.info({ body: JSON.stringify(body).slice(0, 120) }, "Calling Messenger API");
-  const response = await fetch(`${GRAPH_API}?access_token=${PAGE_ACCESS_TOKEN}`, {
+  logger.info({ body: JSON.stringify(body).slice(0, 120) }, "Calling Messenger/Instagram API");
+  const response = await fetch(`${GRAPH_API}?access_token=${token}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!response.ok) {
     const text = await response.text();
-    logger.error({ status: response.status, body: text }, "Messenger API error");
+    logger.error({ status: response.status, body: text }, "Messenger/Instagram API error");
   } else {
     const json = await response.json() as { message_id?: string };
-    logger.info({ message_id: json.message_id }, "Messenger API success");
+    logger.info({ message_id: json.message_id }, "Messenger/Instagram API success");
   }
 }
 
@@ -71,14 +80,14 @@ export async function sendTypingOn(recipientId: string): Promise<void> {
   await callSendAPI({
     recipient: { id: recipientId },
     sender_action: "typing_on",
-  });
+  }, recipientId);
 }
 
 export async function sendTypingOff(recipientId: string): Promise<void> {
   await callSendAPI({
     recipient: { id: recipientId },
     sender_action: "typing_off",
-  });
+  }, recipientId);
 }
 
 export async function sendText(recipientId: string, text: string): Promise<void> {
@@ -86,8 +95,7 @@ export async function sendText(recipientId: string, text: string): Promise<void>
     messaging_type: "RESPONSE",
     recipient: { id: recipientId },
     message: { text },
-  });
-  // Log the bot's reply so it appears in the admin dashboard chat history
+  }, recipientId);
   logMessage(recipientId, "outbound", text).catch((err) =>
     logger.error({ err, psid: recipientId }, "Failed to log outbound message"),
   );
@@ -109,7 +117,7 @@ export async function sendTextWithQuickReplies(
         payload: qr.payload,
       })),
     },
-  });
+  }, recipientId);
   // Log the bot's reply (with quick reply hints) for the admin dashboard
   const qrHint = quickReplies.length > 0
     ? `\n[Quick replies: ${quickReplies.map((qr) => qr.title).join(" · ")}]`
