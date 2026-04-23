@@ -57,22 +57,16 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
     );
   }
 
-  if (matchingPromos.length > 0) {
-    await sendWithDelay(
-      psid,
-      `Wait may bonus pa! 🎉 May ${matchingPromos.length} promo${matchingPromos.length > 1 ? "s" : ""} kami na pwede mo isama dito bes 💖`,
-      900,
-    );
-    for (const promo of matchingPromos) {
-      await sendWithDelay(psid, promo, 1100);
-    }
-  }
+  const promoButton = matchingPromos.length > 0
+    ? [{ title: "🎉 Tingnan ang Promos", payload: "INTENT_PROMOS" }]
+    : [];
 
   await sendWithDelayAndQuickReplies(
     psid,
     `So bes, gusto mo na ba i-book ${service} mo? 😊`,
     [
       { title: "📅 Mag-Book Na", payload: "BOOK_NOW" },
+      ...promoButton,
       { title: "💆 Other Services", payload: "INTENT_SERVICES" },
       { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
     ],
