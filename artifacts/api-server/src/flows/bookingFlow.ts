@@ -52,20 +52,20 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
   } else {
     await sendWithDelay(
       psid,
-      `Para po sa ${service}, mas ok kung makausap mo ang aming staff para sa exact pricing 💕`,
+      `For ${service}, it's best to chat with our staff for exact pricing 💕`,
       1000,
     );
   }
 
   const promoButton = matchingPromos.length > 0
-    ? [{ title: "🎉 Tingnan ang Promos", payload: "INTENT_PROMOS" }]
+    ? [{ title: "🎉 View Promos", payload: "INTENT_PROMOS" }]
     : [];
 
   await sendWithDelayAndQuickReplies(
     psid,
-    `So bes, gusto mo na ba i-book ${service} mo? 😊`,
+    `Would you like to book ${service}? 😊`,
     [
-      { title: "📅 Mag-Book Na", payload: "BOOK_NOW" },
+      { title: "📅 Book Now", payload: "BOOK_NOW" },
       ...promoButton,
       { title: "💆 Other Services", payload: "INTENT_SERVICES" },
       { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
@@ -90,7 +90,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     setSession(psid, { step: "choosing_intent" });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Sige bes, balik tayo sa simula 😊 Anong gusto mong gawin?",
+      "No problem, let's start over! 😊 What can I help you with?",
       INTENT_QUICK_REPLIES,
       1000,
     );
@@ -104,7 +104,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     setSession(psid, { step: "entering_date", retryCount: 0 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `Sige po, mag-book na tayo ng ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
+      `Great! Let's book your ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -150,7 +150,7 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
       resetSession(psid);
       await sendWithDelayAndQuickReplies(
         psid,
-        "Tara, magsimula ulit tayo ha! 😊 Paano kita matutulungan?",
+        "Let's start fresh! 😊 How can I help you?",
         INTENT_QUICK_REPLIES,
         1000,
       );
@@ -170,25 +170,25 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   } else if (payload === "INTENT_SERVICES" || /services|treatment|menu|listahan/i.test(text)) {
     await sendWithDelay(
       psid,
-      "Sige po! Madami kaming services 💅 Pumili lang po sa categories — ipapakita ko sa'yo lahat ng prices kasama ang available promos 💖",
+      "We have a lot of services to choose from! 💅 Select a category below and I'll show you the full price list 💖",
       1200,
     );
     await delay(600);
     setSession(psid, { step: "choosing_service" });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Alin sa mga ito gusto mong tingnan? 💕",
+      "Which one are you interested in? 💕",
       [...SERVICES_QUICK_REPLIES, { title: "👩 Talk to Staff", payload: "INTENT_STAFF" }],
       800,
     );
   } else if (payload === "INTENT_PROMOS" || /promo|discount|sale|deals|mura/i.test(text)) {
-    await sendWithDelay(psid, `May ${ACTIVE_PROMOS.length} active promos po kami ngayon 🎉 Pakicheck na lang lahat — baka may matipid kayo 💖👇`, 800);
+    await sendWithDelay(psid, `We have ${ACTIVE_PROMOS.length} active promos right now! 🎉 Check them out below 💖👇`, 800);
     for (const promo of ACTIVE_PROMOS) {
       await sendWithDelay(psid, promo, 1200);
     }
     await sendWithDelayAndQuickReplies(
       psid,
-      "Sige po, gusto niyo na ba i-avail? Book na po agad bago maubusan 🔥",
+      "Ready to avail one? Book now before slots run out! 🔥",
       PROMOS_QUICK_REPLIES,
       1200,
     );
@@ -204,7 +204,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
       setSession(psid, { step: "choosing_intent", retryCount: 0 });
       await sendWithDelayAndQuickReplies(
         psid,
-        "Hmm, pwede bang piliin sa mga options below? 😊",
+        "Hmm, could you pick from the options below? 😊",
         INTENT_QUICK_REPLIES,
         1000,
       );
@@ -229,7 +229,7 @@ async function handleServiceChoice(psid: string, text: string, payload?: string)
       setSession(psid, { retryCount: 0 });
       await sendWithDelayAndQuickReplies(
         psid,
-        "Baka mas madali kung pipiliin mo sa listahan ha 😊",
+        "It might be easier to just pick from the list below 😊",
         [...SERVICES_QUICK_REPLIES, { title: "👩 Talk to Staff", payload: "INTENT_STAFF" }],
         1000,
       );
@@ -237,7 +237,7 @@ async function handleServiceChoice(psid: string, text: string, payload?: string)
       setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
       await sendWithDelayAndQuickReplies(
         psid,
-        `${randomPick(RETRY_MESSAGES)}Alin sa mga ito ang gusto mo?`,
+        `${randomPick(RETRY_MESSAGES)}Which service would you like?`,
         [...SERVICES_QUICK_REPLIES, { title: "👩 Talk to Staff", payload: "INTENT_STAFF" }],
         1000,
       );
@@ -253,7 +253,7 @@ async function handleDateEntry(psid: string, text: string): Promise<void> {
     upsertClient({ psid, bookingDate: dateValue }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `${dateValue} — noted po! 📅 ${randomPick(TIME_PROMPTS)}`,
+      `${dateValue} — noted! 📅 ${randomPick(TIME_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1200,
     );
@@ -262,7 +262,7 @@ async function handleDateEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}Anong araw ka available? (e.g. 'tomorrow', 'April 25', 'Saturday')`,
+      `${randomPick(RETRY_MESSAGES)}What day are you available? (e.g. 'tomorrow', 'April 25', 'Saturday')`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -278,7 +278,7 @@ async function handleTimeEntry(psid: string, text: string): Promise<void> {
     upsertClient({ psid, bookingTime: text.trim() }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `${text.trim()} — perfect po! 🕐 ${randomPick(NAME_PROMPTS)}`,
+      `${text.trim()} — perfect! 🕐 ${randomPick(NAME_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1200,
     );
@@ -287,7 +287,7 @@ async function handleTimeEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}Anong oras? (e.g. '10am', '2pm', '3:30 PM')`,
+      `${randomPick(RETRY_MESSAGES)}What time? (e.g. '10am', '2pm', '3:30 PM')`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -310,7 +310,7 @@ async function handleNameEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}Ano po ang iyong pangalan?`,
+      `${randomPick(RETRY_MESSAGES)}What's your name?`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -349,7 +349,7 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}Anong mobile number mo? (e.g. 09171234567)`,
+      `${randomPick(RETRY_MESSAGES)}What's your mobile number? (e.g. 09171234567)`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -383,14 +383,14 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
         resetSession(psid);
         await sendText(
           psid,
-          `Yieee CONFIRMED na po booking mo! 🎉💖\n\n` +
+          `Your booking is CONFIRMED! 🎉💖\n\n` +
             `Reference No: ${result.referenceNo}\n\n` +
-            `Abangan mo lang yung confirmation text/message namin sa iyong number ha. Pag may tanong ka, message mo lang ulit ako 💕 Salamat ate, see you soon sa La Julieta Beauty! 🌸`,
+            `Watch out for a confirmation text from us. If you have any questions, just message me anytime 💕 Salamat and see you soon at La Julieta Beauty! 🌸`,
         );
         await delay(1000);
         await sendWithDelayAndQuickReplies(
           psid,
-          "May iba pa ba bes? 😊",
+          "Is there anything else I can help you with? 😊",
           INTENT_QUICK_REPLIES,
           800,
         );
@@ -402,7 +402,7 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
       resetSession(psid);
       await sendWithDelayAndQuickReplies(
         psid,
-        "Hala bes, may glitch ata ngayon 😅 Di ko ma-process yung booking mo eh. Pakiulit na lang mamaya, or kausapin mo na rin agad yung staff namin para matulungan ka asap ha 🙏",
+        "Oops, something went wrong on our end 😅 Please try again in a bit, or you can talk to our staff directly for faster help! 🙏",
         [
           { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
           { title: "🔄 Try Again", payload: "INTENT_BOOK" },
@@ -414,14 +414,14 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
     setSession(psid, { step: "choosing_service", service: undefined, date: undefined, time: undefined, name: undefined, mobile: undefined, retryCount: 0 });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Sige po, i-edit natin 😊 Alin ulit yung service na gusto mo?",
+      "No worries! Let's fix that 😊 Which service would you like?",
       SERVICES_QUICK_REPLIES,
       1000,
     );
   } else {
     await sendWithDelayAndQuickReplies(
       psid,
-      "I-confirm na ba natin ate? 😊",
+      "Shall we go ahead and confirm? 😊",
       [
         { title: "✅ Confirm", payload: "CONFIRM_BOOKING" },
         { title: "✏️ Edit", payload: "EDIT_BOOKING" },

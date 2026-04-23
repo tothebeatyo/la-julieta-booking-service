@@ -1,15 +1,15 @@
 // Varied, human-sounding responses so the bot doesn't feel repetitive
 
 export const WELCOME_MESSAGES = [
-  "Hiii bes! 💕 Welcome sa La Julieta Beauty Parañaque! Kamusta ka? Anong maipagagawa namin para sayo today? 😊",
-  "Helloo po! ✨ Salamat sa pag-message sa amin! Ano po kaya ang gusto mong i-try? 💖",
-  "Hi sis! 🌸 La Julieta Beauty here po. Glad super na nag-message ka! Paano kita matutulungan?",
-  "Hiii ate! 💖 Welcome sa La Julieta Beauty Parañaque. Ano po ba kailangan mo, treatment ba o info lang muna? 😊",
-  "Hi po! 💕 Salamat sa pag-reach out sa La Julieta Beauty. Kausap mo ako — sagot ko lahat ng tanong mo ✨",
+  "Hi there! 💕 Welcome to La Julieta Beauty Parañaque! How can we help you today? 😊",
+  "Hello! ✨ Thanks for reaching out to La Julieta Beauty! What can we do for you? 💖",
+  "Hi! 🌸 La Julieta Beauty here. So glad you messaged us! How can we assist you?",
+  "Hey! 💖 Welcome to La Julieta Beauty Parañaque. Looking for a treatment or just want some info? 😊",
+  "Hi! 💕 Thanks for contacting La Julieta Beauty. I'm here to help — ask me anything! ✨",
 ];
 
 export const INTENT_MENU_TEXT =
-  "Eto po, pumili lang sa baba ha — para mas mabilis 😊 Ano kaya ang kailangan mo?";
+  "Here's what I can help you with — just tap one below! 😊";
 
 export const INTENT_QUICK_REPLIES = [
   { title: "📅 Mag-Book", payload: "INTENT_BOOK" },
@@ -71,7 +71,7 @@ Add-ons: Vitamin C 199 · B-Complex 299 · Collagen 399 · Placenta 499 · L-Car
 🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟
 Mild 599 · Moderate 799 · Severe 999
 
-Lahat po done by licensed aestheticians 💖 Gusto mo bang mag-book? 😊`;
+All treatments are done by licensed aestheticians 💖 Ready to book? 😊`;
 
 // ─── Active Promos ────────────────────────────────────────────────────────────
 // Add new promos here. Each one is sent as a separate Messenger message.
@@ -161,14 +161,14 @@ export const PROMOS_QUICK_REPLIES = [
 ];
 
 export const STAFF_MESSAGE =
-  "Sige po, kakausapin ka ng staff namin agad 💖 Sandali lang ha, may sasagot na sa iyo in a few minutes. Salamat sa patience mo! 🙏";
+  "Of course! 💖 Our staff will get back to you in a few minutes. Sandali lang ha — someone's on their way to assist you! 🙏";
 
 export const BOOK_START_MESSAGES = [
-  "Sige po, mag-book tayo 💖 Alin sa services namin ang gusto mong i-try?",
-  "Sige po, andito ako para tulungan ka 😊 Anong treatment ang gusto mo?",
-  "Okay po, pumili lang sa baba ha — alin ang gusto mo?",
-  "Sure po, mag-book na tayo 💕 Anong service ang interesado ka?",
-  "Noted po, i-book na natin 😊 Anong service ang gusto mong i-avail?",
+  "Great, let's get you booked! 💖 Which of our services would you like to try?",
+  "Sure! I'll help you book your appointment 😊 Which treatment are you interested in?",
+  "Awesome, let's set that up! Just pick a service from the options below 💕",
+  "Let's book you in! 😊 Which service would you like to avail?",
+  "Perfect, let's make it happen! 💕 Which service are you going for?",
 ];
 
 export const SERVICES_QUICK_REPLIES = [
@@ -194,38 +194,38 @@ export const PAYLOAD_TO_SERVICE: Record<string, string> = {
 };
 
 export const DATE_PROMPTS = [
-  "Sige po 🗓️ Kelan po kayo available? Pwede mong i-type yung date — like 'bukas', 'Saturday', or 'April 25'.",
-  "Noted po 🌸 Anong araw po kayo gustong pumunta? Pwede mong i-type yung petsa (e.g. 'bukas' or 'April 28').",
-  "Okay po 📅 Kelan niyo po gustong i-schedule? I-type lang yung araw — kahit 'next Monday' okay lang.",
-  "Got it po 💖 Saan pong araw kayo free? Pwede 'tomorrow', 'Sabado', o specific date.",
+  "When are you available? 🗓️ You can type the date — like 'tomorrow', 'Saturday', or 'April 25'.",
+  "What date works best for you? 🌸 Just type it in (e.g. 'bukas' or 'April 28').",
+  "When would you like to schedule your appointment? 📅 Any date is fine — even 'next Monday'.",
+  "Got it! 💖 What day are you free? You can say 'tomorrow', 'Sabado', or a specific date.",
 ];
 
 export const TIME_PROMPTS = [
-  "Sige po 🕐 Anong oras po ang preferred niyo? (e.g. '10am', '2pm', or 'hapon')",
-  "Noted po ✨ Anong time po ang gusto niyo? Open kami 9am–7pm.",
-  "Okay po 😊 Anong oras po ang best for you? Pwede '11am', '3pm', or 'umaga'/'tanghali'.",
-  "Sige po 🕐 Pakitype na lang po anong oras niyo gusto. (e.g. '1pm', '4:30pm', or 'morning')",
+  "What time do you prefer? 🕐 (e.g. '10am', '2pm', or 'afternoon')",
+  "What time works for you? ✨ We're open 9am–7pm.",
+  "What time is best for you? 😊 You can say '11am', '3pm', or even 'morning'/'hapon'.",
+  "Please type your preferred time 🕐 (e.g. '1pm', '4:30pm', or 'morning')",
 ];
 
 export const NAME_PROMPTS = [
-  "Sige po 💖 Pakibigay na lang po ang full name niyo para sa reservation.",
-  "Noted po 😊 Ano po ang pangalan niyo?",
-  "Okay po, para ma-confirm ang booking — ano po ang pangalan niyo?",
-  "Sige po 💕 Pakitype na lang po ang full name niyo, please.",
+  "Could you share your full name for the reservation? 💖",
+  "What's your name? 😊",
+  "To confirm your booking — what's your full name?",
+  "Please type your full name so we can finalize your slot 💕",
 ];
 
 export const MOBILE_PROMPTS = [
-  "Salamat po 📱 Pakibigay naman po ng mobile number na pwedeng i-contact, para mapadalhan namin kayo ng confirmation.",
-  "Noted po 😊 Ano po ang mobile number niyo? Para mapadalhan namin kayo ng reminders.",
-  "Sige po 💖 Pakishare na lang po ng mobile number niyo (e.g. 09171234567).",
-  "Okay po 📲 Last detail na lang — anong mobile number niyo?",
+  "Thanks! 📱 Please share your mobile number so we can send you a confirmation.",
+  "Almost done! 😊 What's your mobile number? We'll use it to send reminders.",
+  "Last step — please share your mobile number 💖 (e.g. 09171234567)",
+  "What's your contact number? 📲 We'll use it for your booking confirmation.",
 ];
 
 export const RETRY_MESSAGES = [
-  "Hala, di ko na-gets yung sagot mo 😅 Ulit lang please ha? ",
-  "Sorry bes, medyo di ko maintindihan eh. Pwede ulit? 🙏 ",
-  "Oops, may bago akong type-an 😊 I-try mo ulit ha — ",
-  "Hmm di ko po sure kung anong ibig sabihin 😅 Pwede mo ulit-an? ",
+  "Hmm, I didn't quite catch that 😅 Could you try again? ",
+  "Sorry about that! I couldn't understand. Pwede ulit? 🙏 ",
+  "Oops, let me try that again 😊 — ",
+  "I'm not sure what you mean 😅 Could you rephrase that? ",
 ];
 
 export function randomPick<T>(arr: T[]): T {
@@ -235,7 +235,7 @@ export function randomPick<T>(arr: T[]): T {
 // ─── Per-category Pricelists ──────────────────────────────────────────────────
 // Sent when a customer asks about a specific service or category.
 
-export const PRICELIST_FACIALS = `💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦 — Pricelist po (in ₱)
+export const PRICELIST_FACIALS = `💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦 — Price List (in ₱)
 
 • Basic Facial — 299
 • Diamond Peel — 499
@@ -248,7 +248,7 @@ Add-ons:
 • Omega PDT Led — 99
 • Hydrating Sheet Mask — 99`;
 
-export const PRICELIST_MICRONEEDLING = `💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚 — Pricelist po (in ₱)
+export const PRICELIST_MICRONEEDLING = `💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚 — Price List (in ₱)
 
 • Korean BB Glow — 599
 • AcneKléar Microneedling — 1,099
@@ -261,7 +261,7 @@ Add-ons:
 • Whitening Stem Cell — 299
 • Hyaluronic Aqua Stem Cell — 299`;
 
-export const PRICELIST_LASER = `🔥 𝗟𝗔𝗦𝗘𝗥 — Pricelist po (in ₱)
+export const PRICELIST_LASER = `🔥 𝗟𝗔𝗦𝗘𝗥 — Price List (in ₱)
 
 • Skin Rejuvè (nape/elbows/knees) — 799
 • Skin Rejuvè Laser Face — 999
@@ -270,7 +270,7 @@ export const PRICELIST_LASER = `🔥 𝗟𝗔𝗦𝗘𝗥 — Pricelist po (in �
 • Intense UA Hair Removal Laser — 899
 • Upper / Lower Lips Hair Removal — 599`;
 
-export const PRICELIST_HAIR_REMOVAL = `✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Pricelist po (in ₱)
+export const PRICELIST_HAIR_REMOVAL = `✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Price List (in ₱)
 
 • Small Area — 499
 • Medium Area — 899
@@ -280,7 +280,7 @@ Plus laser-based hair removal:
 • Intense UA Hair Removal Laser — 899
 • Upper / Lower Lips — 599`;
 
-export const PRICELIST_HIFU = `🎯 𝗦𝗞𝗜𝗡 𝗧𝗜𝗚𝗛𝗧𝗘𝗡𝗜𝗡𝗚 / 𝗛𝗜𝗙𝗨 — Pricelist po (in ₱)
+export const PRICELIST_HIFU = `🎯 𝗦𝗞𝗜𝗡 𝗧𝗜𝗚𝗛𝗧𝗘𝗡𝗜𝗡𝗚 / 𝗛𝗜𝗙𝗨 — Price List (in ₱)
 
 7D Ultraforma (HIFU):
 • Cheeks & Jaw — 1,799
@@ -308,7 +308,7 @@ ExiSlim:
 • Arms / Thighs — 1,899
 • Full Back — 2,999`;
 
-export const PRICELIST_SLIMMING = `🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝗦𝗢𝗟𝗩𝗘 — Pricelist po (in ₱)
+export const PRICELIST_SLIMMING = `🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝗦𝗢𝗟𝗩𝗘 — Price List (in ₱)
 
 Lemon Bottle:
 • Cheeks & Jaw — 2,099
@@ -323,7 +323,7 @@ Mesolipo:
 • Arms / Bra Line / Thighs — 2,099
 • Tummy / Love Handle — 2,499`;
 
-export const PRICELIST_IV_DRIP = `💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 (Glutathione & Multivitamins) — Pricelist po (in ₱)
+export const PRICELIST_IV_DRIP = `💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 (Glutathione & Multivitamins) — Price List (in ₱)
 
 Per session:
 • Immune Booster — 499
@@ -340,7 +340,7 @@ Add-on Boosters:
 • Placenta — 499
 • L-Carnitine — 599`;
 
-export const PRICELIST_WARTS = `🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Pricelist po (in ₱)
+export const PRICELIST_WARTS = `🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — Price List (in ₱)
 
 • Mild — 599
 • Moderate — 799

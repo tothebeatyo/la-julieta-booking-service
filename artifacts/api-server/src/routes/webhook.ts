@@ -107,7 +107,7 @@ async function processEvent(event: Record<string, unknown>, channel: "messenger"
   getProfileName(psid)
     .then((name) => {
       if (name) {
-        upsertClient({ psid, name }).catch((err) =>
+        upsertClient({ psid, name, channel }).catch((err) =>
           logger.error({ err, psid }, "Failed to save profile name"),
         );
       }
