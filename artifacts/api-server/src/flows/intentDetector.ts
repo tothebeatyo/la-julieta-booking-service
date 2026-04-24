@@ -6,7 +6,7 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   "Oxygeneo Facial": ["oxygeneo", "oxygen facial", "3-in-1 facial", "3 in 1 facial"],
   "Backne Facial": ["backne", "back facial"],
   "Underarm Spa": ["underarm spa", "underarm", "kilikili"],
-  "Facial": ["facial", "face treatment"],
+  "Facial": ["facial", "face treatment", "pangmukha", "para sa mukha", "pimple", "acne facial", "glow facial", "whitening facial"],
 
   // Microneedling
   "Korean BB Glow": ["bb glow", "korean bb"],
@@ -14,7 +14,7 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   "AcneKléar Microneedling": ["acneklear", "acne klear", "acnekléar", "acne microneedling"],
   "Salmon DNA Microneedling": ["salmon", "salmon dna", "pdrn"],
   "Stretch Marks Microneedling": ["stretch mark", "stretch marks"],
-  "Microneedling": ["microneedle", "microneedling", "dermaroller"],
+  "Microneedling": ["microneedle", "microneedling", "dermaroller", "acne scar", "pock mark", "pores"],
 
   // Laser
   "Pico Carbon Peel Laser": ["pico", "carbon peel", "carbon laser"],
@@ -31,12 +31,12 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   "7D Ultraforma HIFU": ["7d", "ultraforma", "ultraformer", "hifu"],
   "Thermagic": ["thermagic", "thermage"],
   "ExiSlim": ["exislim", "exi slim"],
-  "Skin Tightening": ["skin tightening", "tightening", "rf", "lifting"],
+  "Skin Tightening": ["skin tightening", "tightening", "rf", "lifting", "anti aging", "anti-aging", "sagging", "loose skin", "face lift", "facelift", "jaw", "jawline", "v-shape", "vshape"],
 
   // Slimming
   "Lemon Bottle Fat Dissolve": ["lemon bottle", "lemon"],
   "Mesolipo": ["mesolipo", "meso lipo", "meso"],
-  "Slimming": ["slimming", "fat dissolve", "fat dissolving", "emshape", "vline", "v-line"],
+  "Slimming": ["slimming", "fat dissolve", "fat dissolving", "emshape", "vline", "v-line", "tummy", "belly", "love handle", "bra line", "double chin", "pwayto", "payat", "slim"],
 
   // IV Drips
   "Immune Booster Drip": ["immune booster", "immune drip"],
@@ -64,12 +64,22 @@ const DATE_KEYWORDS = ["today", "tomorrow", "ngayon", "bukas", "monday", "tuesda
   "wednesday", "thursday", "friday", "saturday", "sunday",
   "lunes", "martes", "miyerkules", "huwebes", "biyernes", "sabado", "linggo"];
 
-const GREETING_KEYWORDS = ["hello", "hi", "hey", "kumusta", "uy", "helo", "musta", "good morning", "good afternoon", "good evening"];
+const GREETING_KEYWORDS = ["hello", "hi", "hey", "kumusta", "uy", "helo", "musta", "good morning", "good afternoon", "good evening", "kamusta", "sup", "howdy", "hii", "hiii"];
 
-const BOOK_KEYWORDS = ["book", "mag-book", "appointment", "reserv", "gusto", "nais", "tulad", "schedule"];
-const SERVICES_KEYWORDS = ["services", "treatment", "menu", "ano", "saan", "listahan", "what"];
-const PROMOS_KEYWORDS = ["promo", "discount", "sale", "offer", "deals", "mura", "special"];
-const STAFF_KEYWORDS = ["staff", "talk", "human", "agent", "tawo", "tao", "admin", "help"];
+const BOOK_KEYWORDS = ["book", "mag-book", "appointment", "reserv", "gusto ko mag", "nais", "schedule", "i want to book", "i'd like to book", "puwede mag", "pwede mag", "set an appointment", "make an appointment"];
+const SERVICES_KEYWORDS = [
+  "services", "treatment", "menu", "listahan",
+  "what do you offer", "what services", "what treatments",
+  "ano meron", "ano ang meron", "ano ang offer", "anong meron", "anong offer",
+  "magkano", "how much", "price", "presyo", "cost", "rate", "pricelist", "price list",
+  "how much is", "how much does", "how much for",
+  "available", "meron ba", "mayroon ba", "may kayo", "may ba kayo",
+  "inquire", "inquiry", "tanong", "ask about",
+  "gusto malaman", "want to know", "tell me about",
+  "ano ang", "what is", "what's",
+];
+const PROMOS_KEYWORDS = ["promo", "discount", "sale", "offer", "deals", "mura", "special", "free", "package", "bundle", "installment"];
+const STAFF_KEYWORDS = ["staff", "talk", "human", "agent", "tawo", "tao", "admin", "help", "contact", "call", "number", "address", "location", "saan kayo", "nasaan"];
 
 export function detectService(text: string): string | null {
   const lower = text.toLowerCase();

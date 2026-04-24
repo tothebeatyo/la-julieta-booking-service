@@ -159,6 +159,16 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 }
 
 async function handleIntentChoice(psid: string, text: string, payload?: string): Promise<void> {
+  // Always check for a specific service mention first — covers "magkano ang facial",
+  // "how much is laser", "price ng IV drip", etc.
+  if (!payload) {
+    const specificService = detectService(text);
+    if (specificService) {
+      await sendPricingAndPromos(psid, specificService);
+      return;
+    }
+  }
+
   if (payload === "INTENT_BOOK" || /book|appointment|reserv|mag-book|schedule/i.test(text)) {
     setSession(psid, { step: "choosing_service" });
     await sendWithDelayAndQuickReplies(
@@ -167,7 +177,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
       SERVICES_QUICK_REPLIES,
       1200,
     );
-  } else if (payload === "INTENT_SERVICES" || /services|treatment|menu|listahan/i.test(text)) {
+  } else if (payload === "INTENT_SERVICES" || /services|treatment|menu|listahan|magkano|how much|price|presyo|available|ano meron|anong meron|what do you offer/i.test(text)) {
     await sendWithDelay(
       psid,
       "We have a lot of services to choose from! 💅 Select a category below and I'll show you the full price list 💖",
