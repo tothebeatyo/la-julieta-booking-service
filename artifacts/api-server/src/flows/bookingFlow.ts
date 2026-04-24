@@ -7,7 +7,7 @@ import {
 } from "../services/messengerService";
 import { createReservation } from "../services/anyplusService";
 import { getSession, setSession, resetSession } from "./state";
-import { detectService, detectDateKeyword } from "./intentDetector";
+import { detectService, detectDateKeyword, isExplanationQuery } from "./intentDetector";
 import {
   BOOK_START_MESSAGES,
   SERVICES_QUICK_REPLIES,
@@ -23,6 +23,7 @@ import {
   PROMOS_QUICK_REPLIES,
   getPricelistForService,
   getPromosForService,
+  getDescriptionForService,
   randomPick,
 } from "./responses";
 import { logger } from "../lib/logger";
@@ -99,6 +100,12 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
   logger.info({ psid, step: session.step, text, payload }, "Booking flow step");
 
+  // SHOW_PRICING — user saw the description and now wants to see prices
+  if (payload === "SHOW_PRICING" && session.service) {
+    await sendPricingAndPromos(psid, session.service);
+    return;
+  }
+
   // BOOK_NOW from a pricelist message — user wants to book the saved service
   if (payload === "BOOK_NOW" && session.service) {
     setSession(psid, { step: "entering_date", retryCount: 0 });
@@ -160,10 +167,32 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
 async function handleIntentChoice(psid: string, text: string, payload?: string): Promise<void> {
   // Always check for a specific service mention first — covers "magkano ang facial",
-  // "how much is laser", "price ng IV drip", etc.
+  // "what is microneedling", "how does HIFU work", "para saan ang IV drip", etc.
   if (!payload) {
     const specificService = detectService(text);
     if (specificService) {
+      if (isExplanationQuery(text)) {
+        // They're asking what the service IS — show description, then offer pricing/booking
+        const description = getDescriptionForService(specificService);
+        if (description) {
+          setSession(psid, { step: "awaiting_book_decision", service: specificService });
+          upsertClient({ psid, service: specificService }).catch(() => {});
+          await sendWithDelay(psid, description, 1200);
+          await sendWithDelayAndQuickReplies(
+            psid,
+            `Interested in ${specificService}? 😊`,
+            [
+              { title: "💰 See Pricing", payload: "SHOW_PRICING" },
+              { title: "📅 Book Now", payload: "BOOK_NOW" },
+              { title: "💆 Other Services", payload: "INTENT_SERVICES" },
+              { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
+            ],
+            1000,
+          );
+          return;
+        }
+      }
+      // They're asking price / availability — show pricelist directly
       await sendPricingAndPromos(psid, specificService);
       return;
     }

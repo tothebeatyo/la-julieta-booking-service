@@ -108,6 +108,26 @@ export function detectGreeting(text: string): boolean {
   return GREETING_KEYWORDS.some((kw) => lower.startsWith(kw) || lower === kw);
 }
 
+const EXPLANATION_KEYWORDS = [
+  "what is", "what's", "whats",
+  "ano ang", "ano yung", "ano ung", "anong",
+  "para saan", "para sa ano",
+  "what does", "how does", "how do",
+  "what are", "tell me about", "explain",
+  "effective ba", "safe ba", "is it safe", "does it work",
+  "paano", "paano gumagana", "how it works",
+  "maganda ba", "ok ba", "okay ba",
+  "gaano", "difference", "between",
+  "what kind", "what type",
+];
+
+/** Returns true when the message is asking WHAT a service is or how it works,
+ *  rather than asking for pricing or wanting to book. */
+export function isExplanationQuery(text: string): boolean {
+  const lower = text.toLowerCase();
+  return EXPLANATION_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 export function detectIntent(text: string): "book" | "services" | "promos" | "staff" | "greeting" | null {
   const lower = text.toLowerCase();
   if (detectGreeting(lower)) return "greeting";

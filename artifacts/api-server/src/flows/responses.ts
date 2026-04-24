@@ -232,6 +232,126 @@ export function randomPick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// ─── Service Descriptions ─────────────────────────────────────────────────────
+// Sent when a customer asks "what is X" or "para saan ang X"
+
+export const SERVICE_DESCRIPTIONS: Record<string, string> = {
+  facials: `💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦 — What it does
+
+Our facial treatments deeply cleanse, exfoliate, and hydrate your skin. Great for:
+✔️ Removing dead skin cells and unclogging pores
+✔️ Reducing pimples, blackheads, and oily skin
+✔️ Brightening and evening out skin tone
+✔️ Giving your face that fresh, glowing look
+
+Popular choices:
+• 𝗗𝗶𝗮𝗺𝗼𝗻𝗱 𝗣𝗲𝗲𝗹 — exfoliates and polishes skin using a diamond-tipped wand
+• 𝗛𝘆𝗱𝗿𝗮𝗚𝗹𝗼𝘄 — deeply hydrates with serums infused into the skin
+• 𝗢𝘅𝘆𝗴𝗲𝗻𝗲𝗼 — combines exfoliation, infusion, and oxygenation in one session
+• 𝗕𝗮𝗰𝗸𝗻𝗲 𝗙𝗮𝗰𝗶𝗮𝗹 — targets back acne and body breakouts
+
+All done by licensed aestheticians 💖`,
+
+  microneedling: `💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚 — What it does
+
+Microneedling uses tiny needles to create micro-channels in the skin, triggering your body's natural collagen production. Great for:
+✔️ Fading acne scars and dark spots
+✔️ Minimizing pores
+✔️ Smoothing out uneven skin texture
+✔️ Anti-aging and skin rejuvenation
+
+Popular choices:
+• 𝗞𝗼𝗿𝗲𝗮𝗻 𝗕𝗕 𝗚𝗹𝗼𝘄 — gives instant brightening and glass-skin effect
+• 𝗣𝗥𝗣 — uses your own blood plasma for deeper skin renewal
+• 𝗦𝗮𝗹𝗺𝗼𝗻 𝗗𝗡𝗔 — ultra-hydrating, great for dull and aging skin
+• 𝗔𝗰𝗻𝗲𝗞𝗹𝗲𝗮𝗿 — specifically targets active acne and post-acne marks
+
+Results improve over 2–4 weeks as collagen builds up 💖`,
+
+  laser: `🔥 𝗟𝗔𝗦𝗘𝗥 𝗧𝗿𝗲𝗮𝘁𝗺𝗲𝗻𝘁𝘀 — What it does
+
+Our laser treatments use focused light energy to target specific skin concerns. Great for:
+✔️ Whitening underarms, elbows, knees, and nape
+✔️ Removing unwanted hair permanently
+✔️ Evening out skin tone and reducing pigmentation
+✔️ Deep skin rejuvenation and pore tightening
+
+Popular choices:
+• 𝗣𝗶𝗰𝗼 𝗖𝗮𝗿𝗯𝗼𝗻 𝗣𝗲𝗲𝗹 — deep cleanse + brightening, great for oily skin
+• 𝗦𝗸𝗶𝗻 𝗥𝗲𝗷𝘂𝘃𝗲̀ — targets dark areas like nape, elbows, and knees
+• 𝗜𝗻𝘁𝗲𝗻𝘀𝗲 𝗨𝗔 𝗪𝗵𝗶𝘁𝗲𝗻𝗶𝗻𝗴 — brightens underarm area
+
+Safe and quick sessions, usually 20–30 minutes 💖`,
+
+  hair_removal: `✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — What it does
+
+Diode laser hair removal permanently reduces unwanted hair by targeting hair follicles with laser energy. Great for:
+✔️ Long-lasting smooth skin without shaving/waxing
+✔️ Any body area — legs, arms, underarms, bikini, face
+✔️ Reducing ingrown hairs
+✔️ Finer, lighter hair regrowth over sessions
+
+Sessions are quick and virtually painless. Multiple sessions recommended for best results 💖`,
+
+  hifu: `🎯 𝗦𝗸𝗶𝗻 𝗧𝗶𝗴𝗵𝘁𝗲𝗻𝗶𝗻𝗴 / 𝗛𝗜𝗙𝗨 — What it does
+
+HIFU (High-Intensity Focused Ultrasound) and skin tightening treatments lift and firm the skin non-surgically. Great for:
+✔️ Lifting sagging cheeks, jawline, and neck
+✔️ Reducing double chin
+✔️ Tightening loose skin on the tummy, arms, and thighs
+✔️ Anti-aging without surgery or downtime
+
+Our options:
+• 𝟳𝗗 𝗨𝗹𝘁𝗿𝗮𝗳𝗼𝗿𝗺𝗮 — the gold standard HIFU, visible lifting after 1 session
+• 𝗧𝗵𝗲𝗿𝗺𝗮𝗴𝗶𝗰 — uses radiofrequency for tighter, younger-looking skin
+• 𝗘𝘅𝗶𝗦𝗹𝗶𝗺 — slims and contours face and body
+
+Results last 6–12 months. No downtime needed 💖`,
+
+  slimming: `🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝘀𝗢𝗟𝗩𝗘 — What it does
+
+Our slimming treatments break down stubborn fat cells in targeted areas without surgery. Great for:
+✔️ Reducing double chin, arm fat, tummy, love handles, and bra bulge
+✔️ Contouring and sculpting your body shape
+✔️ Achieving a slimmer, snatched look
+
+Our options:
+• 𝗟𝗲𝗺𝗼𝗻 𝗕𝗼𝘁𝘁𝗹𝗲 — fat-dissolving injection that melts stubborn fat fast
+• 𝗠𝗲𝘀𝗼𝗹𝗶𝗽𝗼 — cocktail of fat-dissolving agents for precise contouring
+
+No surgery, no downtime. Results are visible within 2–4 weeks 💖`,
+
+  iv_drip: `💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 — What it does
+
+IV Drips deliver vitamins, antioxidants, and nutrients directly into your bloodstream for maximum absorption. Great for:
+✔️ Skin whitening and brightening (Glutathione)
+✔️ Boosting immunity and energy levels
+✔️ Anti-aging and collagen support
+✔️ Overall wellness and detox
+
+Popular drips:
+• 𝗦𝗻𝗼𝘄 𝗪𝗵𝗶𝘁𝗲 / 𝗚𝗼𝗱𝗱𝗲𝘀𝘀 — high-dose glutathione for skin whitening
+• 𝗜𝗺𝗺𝘂𝗻𝗲 𝗕𝗼𝗼𝘀𝘁𝗲𝗿 — vitamins to strengthen your immune system
+• 𝗕𝗲𝗹𝗹𝗮 𝗗𝗿𝗶𝗽 — skin glow + energy combo
+
+Each session takes about 30–45 minutes. Add-ons available like Collagen, Placenta, and L-Carnitine 💖`,
+
+  warts: `🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟 — What it does
+
+Warts removal is a quick procedure that safely removes skin warts, skin tags, and small benign growths. Great for:
+✔️ Removing warts on face, neck, body, or hands
+✔️ Getting rid of skin tags safely
+✔️ Smoother, clearer skin
+
+The procedure is fast and minimally invasive. Healing time is usually 3–7 days 💖`,
+};
+
+export function getDescriptionForService(service: string): string | null {
+  const cat = SERVICE_TO_CATEGORY[service];
+  if (!cat) return null;
+  return SERVICE_DESCRIPTIONS[cat] ?? null;
+}
+
 // ─── Per-category Pricelists ──────────────────────────────────────────────────
 // Sent when a customer asks about a specific service or category.
 
