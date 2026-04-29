@@ -183,6 +183,11 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
   // BOOK_NOW from a pricelist message — user wants to book the saved service
   if (payload === "BOOK_NOW" && session.service) {
+    // If service requires safety screening and user hasn't been screened yet, screen first
+    if (INJECTABLE_SERVICES.has(session.service) && !session.screeningPassed) {
+      await startSafetyScreening(psid, session.service);
+      return;
+    }
     setSession(psid, { step: "entering_date", retryCount: 0 });
     upsertClient({ psid, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
@@ -312,7 +317,7 @@ async function handleSafetyScreening(psid: string, text: string, payload?: strin
     const pendingService = session.pendingService ?? "IV Drip";
     await sendWithDelay(psid, SAFETY_PASS_MESSAGE, 1000);
     await delay(400);
-    setSession(psid, { step: "awaiting_book_decision", service: pendingService, screeningStep: 0, safetyFlags: [] });
+    setSession(psid, { step: "awaiting_book_decision", service: pendingService, screeningStep: 0, safetyFlags: [], screeningPassed: true });
     await sendPricingAndPromos(psid, pendingService);
     return;
   }
@@ -488,15 +493,6 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     return;
   }
 
-  // Service payloads that need injectable safety screening
-  if (payload && ["SVC_DRIP", "SVC_SLIM"].includes(payload)) {
-    const service = PAYLOAD_TO_SERVICE[payload];
-    if (INJECTABLE_SERVICES.has(service)) {
-      await startSafetyScreening(psid, service);
-      return;
-    }
-  }
-
   // Specific service mention from free text
   if (!payload) {
     const specificService = detectService(text);
@@ -610,12 +606,44 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   } else {
     const detectedService = detectService(text);
     if (detectedService) {
-      await sendPricingAndPromos(psid, detectedService);
+      if (INJECTABLE_SERVICES.has(detectedService)) {
+        await startSafetyScreening(psid, detectedService);
+      } else {
+        await sendPricingAndPromos(psid, detectedService);
+      }
+    } else if (session.step === "awaiting_book_decision" && session.service) {
+      // User is mid-flow and sent something unrecognised — re-anchor them to current service
+      const isSlimming = session.service === "Slimming / Fat Dissolve" || session.service === "Slimming";
+      if (isSlimming) {
+        await sendWithDelayAndQuickReplies(
+          psid,
+          `Still deciding? 😊 Here are your options for slimming:`,
+          [
+            { title: "🍋 Lemon Bottle", payload: "SVC_LEMON_BOTTLE" },
+            { title: "💉 Mesolipo", payload: "SVC_MESOLIPO" },
+            { title: "📅 Book Consultation", payload: "BOOK_NOW" },
+            { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+          ],
+          1000,
+        );
+      } else {
+        await sendWithDelayAndQuickReplies(
+          psid,
+          `Ready to book your ${session.service}? 😊`,
+          [
+            { title: "📅 Book Now", payload: "BOOK_NOW" },
+            { title: "💆 Other Services", payload: "INTENT_SERVICES" },
+            { title: "🎉 View Promos", payload: "INTENT_PROMOS" },
+            { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+          ],
+          1000,
+        );
+      }
     } else {
       setSession(psid, { step: "choosing_intent", retryCount: 0 });
       await sendWithDelayAndQuickReplies(
         psid,
-        "Hmm, could you pick from the options below? 😊",
+        "Hmm, not sure I got that 😊 Here's what I can help you with:",
         INTENT_QUICK_REPLIES,
         1000,
       );

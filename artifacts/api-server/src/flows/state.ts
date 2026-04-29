@@ -30,6 +30,7 @@ export interface UserState {
   concern?: string;
   safetyFlags?: string[];
   screeningStep?: number;
+  screeningPassed?: boolean;
   pendingService?: string;
   intent?: string;
 }
