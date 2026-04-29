@@ -1,0 +1,216 @@
+Build a NEW and SEPARATE Telegram bot for content posting and marketing automation.
+
+IMPORTANT:
+
+* This is a NEW Telegram bot (Content Bot).
+* Do NOT modify or reuse the existing Telegram bot used for booking/customer chatbot.
+* Do NOT break existing Facebook Messenger, Instagram DM chatbot, dashboard, logs, or AnyPlusPro automation.
+* This must run independently but share the same backend/database optionally.
+
+Bot name purpose:
+Content Bot for Lajulieta Beauty Paranaque
+
+---
+
+Goal:
+This new Telegram bot will:
+
+* Generate marketing content using Gemini AI
+* Generate images
+* Generate captions, hooks, CTA, hashtags
+* Preview content
+* Post to Facebook Page and Instagram
+* Save drafts to Content Studio dashboard
+* Manage comments and auto replies
+
+---
+
+Environment variables (NEW BOT ONLY):
+CONTENT_TELEGRAM_BOT_TOKEN=
+CONTENT_ADMIN_CHAT_ID=
+
+Do NOT use TELEGRAM_BOT_TOKEN from the booking bot.
+
+---
+
+AI Configuration:
+Use Gemini as PRIMARY:
+GEMINI_API_KEY=
+GEMINI_TEXT_MODEL=gemini-2.5-flash
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+
+Fallback:
+OPENAI_API_KEY= optional
+
+---
+
+Files to create (NEW MODULES ONLY):
+
+* content_bot.py  ← new Telegram bot entry point
+* content_ai.py
+* image_generator.py
+* social_poster.py
+* comment_manager.py
+* content_database.py
+* content_routes.py
+
+Do NOT modify:
+
+* booking bot files
+* messenger webhook files
+* anypluspro automation files
+
+---
+
+Telegram Bot Flow:
+
+User sends:
+`/post`
+
+Bot asks:
+
+1. Topic/service (example: acne facial, gluta drip, promo)
+2. Single image or carousel
+3. Generate image or upload image
+4. Platform: Facebook / Instagram / Both
+
+Then:
+
+* Generate content using Gemini
+* Generate 1 image only (cost control)
+* Create:
+
+  * hook
+  * caption
+  * CTA
+  * hashtags
+  * comment auto replies
+
+Send preview to Telegram:
+Include:
+
+* image
+* caption
+* buttons:
+
+Buttons:
+
+* Approve & Post
+* Save Draft
+* Regenerate Caption
+* Regenerate Image
+* Cancel
+
+---
+
+Posting Mode:
+AUTO_POST=false (default)
+
+Flow:
+Generate → Preview → Approve → Post
+
+---
+
+Content Style:
+Business: Lajulieta Beauty Paranaque
+Location: One Oasis Bldg., Jackie Lou Ville Ave., BF Homes, Parañaque
+Hours: Tue–Sun 9AM–6PM
+
+Tone:
+
+* Professional
+* Friendly
+* English + light Taglish
+* Short
+* Booking-focused
+* No medical claims
+* No exaggerated results
+
+---
+
+Caption Structure:
+Hook
+Short explanation
+Benefits bullet list
+Simple disclaimer
+CTA: “Message us to book your consultation 💖”
+Location + hours
+Hashtags
+
+---
+
+Cost Optimization:
+
+* Max 1 image per post
+* Max 2 regenerations
+* Cache content if same topic
+* Log Gemini usage
+* Do not regenerate automatically
+
+---
+
+Content Studio Dashboard:
+Add NEW TAB: “Content Studio”
+
+Show:
+
+* image preview
+* topic
+* caption
+* hook
+* hashtags
+* status: draft / approved / posted
+* platform
+* post ID / URL
+* created date
+* posted date
+
+Actions:
+
+* Approve & Post
+* Edit caption
+* Regenerate
+* Delete
+
+---
+
+Comment Auto Reply:
+If platform supports:
+
+* detect comments
+* auto reply:
+
+Examples:
+price:
+“Hi! 😊 Please message us so we can assist you better 💖”
+
+interested:
+“Hi! 💖 Kindly message us to book your consultation 😊”
+
+location:
+“📍 One Oasis Bldg., BF Homes Parañaque 😊”
+
+---
+
+Safety:
+
+* Never expose API keys
+* Do not auto post without approval
+* Handle API failures gracefully
+* Save errors to dashboard
+
+---
+
+Final Output:
+Explain:
+
+* how to run NEW content bot
+* how it is separated from booking bot
+* secrets needed
+* how to test `/post`
+* how to approve post
+* how to check Content Studio
+
+---
+
+This is a completely separate bot system.
