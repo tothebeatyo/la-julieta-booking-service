@@ -407,9 +407,11 @@ async function handleSkinConcern(psid: string, payload: string): Promise<void> {
 // ─── Intent Choice ────────────────────────────────────────────────────────────
 
 async function handleIntentChoice(psid: string, text: string, payload?: string): Promise<void> {
+  const session = getSession(psid);
+
   // "Yes" / affirmative text when waiting for booking decision — go straight to booking
   if (session.step === "awaiting_book_decision" && session.service && !payload) {
-    const isYes = /^(yes|oo|opo|sure|sige|ayos|ok|okay|go|push|yep|yup|tara|sali|gusto|i want|book|pls|please|ayaw|ayan|yep|yup|booking)$/i.test(text.trim());
+    const isYes = /^(yes|oo|opo|sure|sige|ayos|ok|okay|go|push|yep|yup|tara|sali|gusto|i want|book|pls|please|ayan|booking|let's go|lets go|sali na|sige na|oo na|sure na)$/i.test(text.trim());
     if (isYes) {
       setSession(psid, { step: "entering_date", retryCount: 0 });
       upsertClient({ psid, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
@@ -427,7 +429,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   if (payload === "SVC_LEMON_BOTTLE") {
     setSession(psid, { step: "entering_date", service: "Lemon Bottle Fat Dissolve", retryCount: 0 });
     upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelay(psid, `🍋 Great choice! Lemon Bottle is fast-acting and works well on double chin, arms, tummy, and love handles.\n\nPromo rate: ₱567/mL 💕`, 1000);
+    await sendWithDelay(psid, `🍋 Great choice! Lemon Bottle is fast-acting and targets double chin, arms, tummy, and love handles.\n\nPromo rate: ₱567/mL 💕`, 1000);
     await sendWithDelayAndQuickReplies(
       psid,
       `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
@@ -441,7 +443,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   if (payload === "SVC_MESOLIPO") {
     setSession(psid, { step: "entering_date", service: "Mesolipo", retryCount: 0 });
     upsertClient({ psid, service: "Mesolipo", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelay(psid, `💉 Great choice! Mesolipo uses a precision cocktail of fat-dissolving agents — perfect for face, arms, tummy, and bra line contouring.\n\nStarting at ₱1,099 per area 💕`, 1000);
+    await sendWithDelay(psid, `💉 Great choice! Mesolipo is a precision cocktail of fat-dissolving agents — perfect for face, arms, tummy, and bra line contouring.\n\nStarting at ₱1,099 per area 💕`, 1000);
     await sendWithDelayAndQuickReplies(
       psid,
       `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
@@ -454,6 +456,18 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   // Injectable service with safety screening shortcut
   if (payload === "SCREENING_GLUTA") {
     await startSafetyScreening(psid, "IV Drip");
+    return;
+  }
+
+  // Any SVC_* payload — route to pricing or safety screening
+  // Covers SVC_FACIAL, SVC_MICRO, SVC_LASER, SVC_HAIR, SVC_HIFU, SVC_WARTS, SVC_DRIP, SVC_SLIM
+  if (payload && PAYLOAD_TO_SERVICE[payload]) {
+    const svc = PAYLOAD_TO_SERVICE[payload];
+    if (INJECTABLE_SERVICES.has(svc)) {
+      await startSafetyScreening(psid, svc);
+    } else {
+      await sendPricingAndPromos(psid, svc);
+    }
     return;
   }
 
