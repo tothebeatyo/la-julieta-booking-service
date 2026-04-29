@@ -1,6 +1,8 @@
 export type BookingStep =
   | "idle"
   | "choosing_intent"
+  | "choosing_skin_concern"
+  | "safety_screening"
   | "choosing_service"
   | "awaiting_book_decision"
   | "entering_date"
@@ -21,6 +23,11 @@ export interface UserState {
   mobile?: string;
   retryCount: number;
   channel: MessageChannel;
+  concern?: string;
+  safetyFlags?: string[];
+  screeningStep?: number;
+  pendingService?: string;
+  intent?: string;
 }
 
 const userSessions = new Map<string, UserState>();

@@ -128,12 +128,39 @@ export function isExplanationQuery(text: string): boolean {
   return EXPLANATION_KEYWORDS.some((kw) => lower.includes(kw));
 }
 
-export function detectIntent(text: string): "book" | "services" | "promos" | "staff" | "greeting" | null {
+const SKIN_CONCERN_KEYWORDS = [
+  "concern", "problema", "problem", "issue",
+  "acne", "pimple", "pimples", "breakout", "blackhead", "whitehead",
+  "dull", "pangit", "mapulahin", "pale", "tired looking",
+  "whitening", "whiten", "glow", "brighten", "bright", "maputi", "magpaputi", "gusto maging maputi",
+  "anti aging", "anti-aging", "aging", "wrinkle", "fine line", "sagging", "matanda", "tumatanda",
+  "sensitive", "sensitive skin", "easily irritated", "irritation", "allergy skin",
+  "skin type", "ano treatment", "anong treatment", "para sa skin",
+];
+
+const INJECTABLE_KEYWORDS = [
+  "injectable", "injection", "inject", "gluta", "glutathione", "iv drip",
+  "drip", "fat dissolve", "lemon bottle", "mesolipo", "warts",
+];
+
+export function detectIntent(text: string): "book" | "services" | "promos" | "staff" | "greeting" | "skin_concern" | "injectables" | null {
   const lower = text.toLowerCase();
   if (detectGreeting(lower)) return "greeting";
   if (STAFF_KEYWORDS.some((kw) => lower.includes(kw))) return "staff";
   if (BOOK_KEYWORDS.some((kw) => lower.includes(kw))) return "book";
   if (PROMOS_KEYWORDS.some((kw) => lower.includes(kw))) return "promos";
+  if (INJECTABLE_KEYWORDS.some((kw) => lower.includes(kw))) return "injectables";
+  if (SKIN_CONCERN_KEYWORDS.some((kw) => lower.includes(kw))) return "skin_concern";
   if (SERVICES_KEYWORDS.some((kw) => lower.includes(kw))) return "services";
+  return null;
+}
+
+export function detectSkinConcern(text: string): string | null {
+  const lower = text.toLowerCase();
+  if (/acne|pimple|breakout|blackhead|whitehead|tagihawat/i.test(lower)) return "acne";
+  if (/dull|mapulahin|pale|tired|dark|dark skin/i.test(lower)) return "dull";
+  if (/whiten|whitening|glow|maputi|magpaputi|brighten|brightening/i.test(lower)) return "whitening";
+  if (/anti.?aging|aging|wrinkle|fine line|sagging|lifting|tumatanda|matanda/i.test(lower)) return "anti_aging";
+  if (/sensitive|irritat|allerg/i.test(lower)) return "sensitive";
   return null;
 }

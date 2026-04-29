@@ -1,0 +1,219 @@
+Upgrade my existing Facebook Messenger chatbot for Lajulieta Beauty Paranaque.
+
+Important:
+
+* Messenger webhook is already working.
+* Facebook Page token is already connected.
+* Do NOT rebuild from scratch.
+* Keep existing webhook, token setup, dashboard, chat logs, and database.
+* Only upgrade the chatbot flow, menu buttons, AI logic, and Telegram alert.
+
+Main upgrades:
+
+1. Add Messenger Persistent Menu / Quick Reply Menu
+
+Create a guided menu for faster funneling:
+
+Main options:
+
+* 💆 Facial Treatments
+* ✨ Skin Concerns
+* 💉 Injectables / Gluta
+* 🎉 Promos
+* 📅 Book Appointment
+* 👩‍⚕️ Talk to Agent
+
+When user clicks a menu item, trigger the correct flow.
+
+2. Skin Concerns Flow
+
+If user chooses Skin Concerns, show options:
+
+* Acne / Pimples
+* Dull Skin
+* Whitening / Glow
+* Anti-Aging
+* Sensitive Skin
+
+For each concern:
+
+* explain simply
+* no medical jargon
+* no guaranteed results
+* recommend consultation
+* suggest possible service
+* end with booking CTA
+
+3. Service Explanation Flow
+
+When user asks about any service, reply with:
+
+* What it is
+* Simple benefit
+* Pros
+* Things to consider
+* Who it may be suitable for
+* Safety note
+* CTA to book consultation
+
+Example format:
+
+“Gluta drip is usually chosen by clients who want a brighter, fresher-looking glow ✨
+
+Benefits:
+• Helps improve overall glow
+• May support brighter-looking skin
+
+Things to consider:
+• Needs multiple sessions
+• Not suitable for everyone
+
+Before we recommend this, may I ask:
+Are you pregnant, breastfeeding, or allergic to injections?”
+
+4. Safety Screening
+
+Before recommending injectables / gluta / drip services, ask:
+
+* Are you pregnant?
+* Are you breastfeeding / lactating?
+* Do you have allergies to injections?
+* Are you taking any medication?
+* Do you have any medical condition?
+
+If user says yes to pregnancy, breastfeeding, injection allergy, medication, or medical condition:
+
+* Do NOT recommend injectables.
+* Reply politely:
+  “Thank you for sharing. For safety, we recommend avoiding injectable treatments for now and booking a consultation first. We can suggest non-invasive facial options instead 💖”
+
+5. Funnel Recommendation Logic
+
+Based on answers:
+
+* Acne → acne facial / acne care consultation
+* Dull skin → brightening facial / glow facial
+* Whitening / glow → brightening facial first, gluta only if safety screening passes
+* Anti-aging → anti-aging facial / skin consultation
+* Sensitive skin → consultation first, gentle facial option
+* Pregnant/lactating → non-invasive facial only, consultation required
+* Allergy to injection → avoid injectable/gluta drip
+
+6. Booking Flow
+
+When user wants to book, collect:
+
+* Full name
+* Contact number
+* Preferred date
+* Preferred time
+* Concern / selected service
+
+Save to existing database/dashboard.
+
+Set lead status:
+
+* booking_requested
+
+7. Talk to Agent Flow
+
+When user clicks or types:
+
+* Talk to Agent
+* agent
+* admin
+* staff
+* human
+* representative
+
+Bot replies:
+“Of course 😊 I’ll notify our staff so they can assist you personally. Please wait for our team’s reply 💖”
+
+Then send Telegram admin alert using existing or new env vars:
+
+* TELEGRAM_BOT_TOKEN
+* TELEGRAM_ADMIN_CHAT_ID
+
+Telegram alert format:
+
+🚨 TALK TO AGENT REQUEST
+
+Page: Lajulieta Beauty Paranaque
+Name: [Facebook user name if available]
+PSID: [sender id]
+Last Message: [message]
+Concern/Intent: [detected intent]
+Time: [timestamp]
+
+Mark conversation status:
+
+* escalated
+
+8. Dashboard Upgrade
+
+In the admin dashboard, add or update:
+
+* Lead status
+* Concern / intent
+* Recommended service
+* Safety flags
+* Booking details
+* Escalated status
+
+Add filters:
+
+* New leads
+* Booking requested
+* Talk to agent
+* Pregnant/lactating safety flag
+* Injection allergy safety flag
+
+9. AI Tone
+
+All replies must be:
+
+* professional
+* warm
+* English first
+* light Taglish
+* short and clear
+* premium clinic style
+* not spammy
+
+Avoid:
+
+* medical diagnosis
+* guaranteed results
+* complex medical jargon
+* overly long replies
+
+Always guide toward:
+
+* consultation
+* booking
+* talk to staff if unsure
+
+10. Preserve Existing System
+
+Do not break:
+
+* existing Messenger webhook
+* existing Facebook token
+* existing admin dashboard
+* existing chat history logs
+* existing database data
+
+Only enhance the system.
+
+11. Testing
+
+After changes, tell me how to test:
+
+* main menu
+* skin concern flow
+* gluta safety screening
+* booking collection
+* talk to agent Telegram alert
+* dashboard lead status update
+
+Apply all changes directly in the current Replit project.

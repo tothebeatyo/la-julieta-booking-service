@@ -12,10 +12,29 @@ export const INTENT_MENU_TEXT =
   "Here's what I can help you with — just tap one below! 😊";
 
 export const INTENT_QUICK_REPLIES = [
-  { title: "📅 Mag-Book", payload: "INTENT_BOOK" },
-  { title: "💆 Services", payload: "INTENT_SERVICES" },
+  { title: "💆 Facial Treatments", payload: "INTENT_FACIALS" },
+  { title: "✨ Skin Concerns", payload: "INTENT_SKIN_CONCERN" },
+  { title: "💉 Injectables / Gluta", payload: "INTENT_INJECTABLES" },
   { title: "🎉 Promos", payload: "INTENT_PROMOS" },
-  { title: "👩 Talk to Staff", payload: "INTENT_STAFF" },
+  { title: "📅 Book Appointment", payload: "INTENT_BOOK" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+];
+
+export const SKIN_CONCERN_QUICK_REPLIES = [
+  { title: "🔴 Acne / Pimples", payload: "CONCERN_ACNE" },
+  { title: "😐 Dull Skin", payload: "CONCERN_DULL" },
+  { title: "✨ Whitening / Glow", payload: "CONCERN_WHITENING" },
+  { title: "⏳ Anti-Aging", payload: "CONCERN_ANTIAGING" },
+  { title: "🌸 Sensitive Skin", payload: "CONCERN_SENSITIVE" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+];
+
+export const INJECTABLES_QUICK_REPLIES = [
+  { title: "💧 IV Drip / Gluta", payload: "SVC_DRIP" },
+  { title: "🍋 Fat Dissolve", payload: "SVC_SLIM" },
+  { title: "🩹 Warts Removal", payload: "SVC_WARTS" },
+  { title: "💉 Microneedling", payload: "SVC_MICRO" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
 ];
 
 export const SERVICES_LIST = `Ito po ang full menu namin 💅 (prices in ₱)
@@ -161,7 +180,109 @@ export const PROMOS_QUICK_REPLIES = [
 ];
 
 export const STAFF_MESSAGE =
-  "Of course! 💖 Our staff will get back to you in a few minutes. Sandali lang ha — someone's on their way to assist you! 🙏";
+  "Of course 😊 I'll notify our staff right away so they can assist you personally. Please wait for our team's reply 💖 Sandali lang ha!";
+
+// ─── Skin Concern Messages ────────────────────────────────────────────────────
+
+export const SKIN_CONCERN_ACNE = `🔴 Acne & Pimples
+
+Acne happens when pores get clogged with oil, bacteria, or dead skin cells. It can affect self-confidence, but the good news — it's very treatable! ✨
+
+✅ What may help:
+• Regular facial treatments to deep-cleanse and clear pores
+• AcneKléar Microneedling — targets active acne and post-acne marks
+• Pico Carbon Peel Laser — deep cleanse + reduces oiliness
+
+⚠️ Things to keep in mind:
+• Results vary from person to person
+• Multiple sessions are usually recommended
+• Avoid popping pimples — it can worsen scarring
+
+We recommend starting with a consultation so our licensed aestheticians can assess your skin type and suggest the best approach for you 💕`;
+
+export const SKIN_CONCERN_DULL = `😐 Dull Skin
+
+Dull skin happens when dead skin cells build up on the surface, making your complexion look flat and tired. Very common, and very fixable! ✨
+
+✅ What may help:
+• Diamond Peel or HydraGlow Facial — exfoliates and instantly brightens
+• Oxygeneo 3-in-1 Facial — combines exfoliation, infusion, and oxygenation
+• Pico Carbon Peel Laser — deep cleanse + rejuvenation in one session
+
+💡 Lifestyle tip:
+Stay hydrated and wear sunscreen daily — it makes a big difference!
+
+Our team can help you find the right glow treatment. A consultation is a great first step 💕`;
+
+export const SKIN_CONCERN_WHITENING = `✨ Skin Whitening & Glow
+
+Looking for a brighter, more even skin tone? We have several options depending on your needs and skin type ✨
+
+✅ Starting options (non-invasive):
+• Brightening Facial — gentle brightening with zero downtime
+• Skin Rejuvè Laser — targets dark areas like nape, elbows, underarms
+• Intense UA Whitening Laser — specifically for underarm whitening
+
+💉 For deeper brightening:
+• Glutathione IV Drip — delivers antioxidants directly to the bloodstream
+
+⚠️ Note:
+Skin whitening results vary per individual. We always recommend a consultation first to make sure the right treatment is chosen for your skin.
+
+Before recommending injectable options, may I ask a few quick safety questions? 😊`;
+
+export const SKIN_CONCERN_ANTIAGING = `⏳ Anti-Aging & Skin Firming
+
+Concerned about fine lines, sagging skin, or loss of facial volume? You're not alone — and there are great non-surgical options for you! ✨
+
+✅ What may help:
+• Anti-Aging Facial — hydrates and firms skin using targeted serums
+• Salmon DNA Microneedling — ultra-hydrating, boosts collagen naturally
+• 7D Ultraforma HIFU — lifts and tightens face, jaw, and neck non-surgically
+• Thermagic RF — radiofrequency tightening for a younger-looking appearance
+
+⚠️ Things to know:
+• Non-invasive options need multiple sessions for best results
+• Results are gradual, not instant
+• No surgery or downtime required
+
+We recommend a skin consultation first so we can assess your needs and suggest the best combination 💕`;
+
+export const SKIN_CONCERN_SENSITIVE = `🌸 Sensitive Skin
+
+Sensitive skin needs extra care and a gentler approach. Not all treatments are suitable — that's why we always recommend a consultation first before recommending anything 💕
+
+✅ What we typically suggest:
+• Basic Facial — gentle cleansing and hydration, safe for most skin types
+• HydraGlow Facial — hydrating and soothing, minimal irritation
+• We avoid harsh peels or high-intensity treatments until your skin is assessed
+
+⚠️ Important:
+Please let our aestheticians know about any known allergies or reactions before any treatment.
+
+A consultation is the safest first step for sensitive skin. Our team will guide you every step of the way 🌸`;
+
+export const SAFETY_SCREENING_INTRO = `Before we recommend injectable treatments, may I ask a few quick safety questions? This is for your wellbeing 💖 It only takes a moment.`;
+
+export const SAFETY_QUESTIONS = [
+  "Are you currently pregnant? 🤰",
+  "Are you breastfeeding or currently lactating? 🍼",
+  "Do you have any known allergy to injections or needles? 💉",
+  "Are you currently taking any medication (prescription or otherwise)?",
+  "Do you have any existing medical condition we should know about? (e.g. heart condition, diabetes, autoimmune, etc.)",
+];
+
+export const SAFETY_FAIL_MESSAGE =
+  `Thank you for sharing that with us 💖 For your safety, we recommend avoiding injectable treatments for now and booking a consultation first.\n\nOur licensed aestheticians can suggest gentle, non-invasive facial options that are safe and effective for you 🌸`;
+
+export const SAFETY_PASS_MESSAGE =
+  `Great news — based on your answers, injectable treatments may be suitable for you! 😊 Here's what we offer:`;
+
+export const YES_NO_QUICK_REPLIES = [
+  { title: "✅ Yes", payload: "SCREENING_YES" },
+  { title: "❌ No", payload: "SCREENING_NO" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+];
 
 export const BOOK_START_MESSAGES = [
   "Great, let's get you booked! 💖 Which of our services would you like to try?",
