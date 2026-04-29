@@ -1,50 +1,74 @@
 const SERVICE_KEYWORDS: Record<string, string[]> = {
   // Facials
-  "Basic Facial": ["basic facial"],
-  "Diamond Peel": ["diamond peel"],
+  "Basic Facial": ["basic facial", "basic"],
+  "Diamond Peel": ["diamond peel", "dp facial"],
   "HydraGlow Facial": ["hydraglow", "hydra glow", "hydrafacial", "hydra facial"],
   "Oxygeneo Facial": ["oxygeneo", "oxygen facial", "3-in-1 facial", "3 in 1 facial"],
-  "Backne Facial": ["backne", "back facial"],
-  "Underarm Spa": ["underarm spa", "underarm", "kilikili"],
-  "Facial": ["facial", "face treatment", "pangmukha", "para sa mukha", "pimple", "acne facial", "glow facial", "whitening facial"],
+  "Backne Facial": ["backne", "back facial", "back acne"],
+  "Underarm Spa": ["underarm spa", "ua spa", "armpit spa", "kilikili spa", "underarm treatment", "ua treatment"],
+  "Facial": ["facial", "face treatment", "pangmukha", "para sa mukha", "pimple", "acne facial", "glow facial", "whitening facial", "face"],
 
   // Microneedling
-  "Korean BB Glow": ["bb glow", "korean bb"],
+  "Korean BB Glow": ["bb glow", "korean bb", "kbb"],
   "PRP Microneedling": ["prp"],
   "AcneKléar Microneedling": ["acneklear", "acne klear", "acnekléar", "acne microneedling"],
-  "Salmon DNA Microneedling": ["salmon", "salmon dna", "pdrn"],
-  "Stretch Marks Microneedling": ["stretch mark", "stretch marks"],
-  "Microneedling": ["microneedle", "microneedling", "dermaroller", "acne scar", "pock mark", "pores"],
+  "Salmon DNA Microneedling": ["salmon", "salmon dna", "pdrn", "salmon dna"],
+  "Stretch Marks Microneedling": ["stretch mark", "stretch marks", "stretchmarks", "unat", "unat ng balat"],
+  "Microneedling": ["microneedle", "microneedling", "dermaroller", "acne scar", "pock mark", "pores", "micro needling"],
 
   // Laser
   "Pico Carbon Peel Laser": ["pico", "carbon peel", "carbon laser"],
   "Skin Rejuvè Laser": ["skin rejuve", "rejuvè", "skin rejuvé", "rejuve laser"],
-  "Whitening Laser": ["whitening laser", "intense ua whitening"],
-  "Laser Hair Removal": ["laser hair", "hair removal laser", "ua hair removal"],
-  "Lips Hair Removal": ["lips hair", "upper lip", "lower lip"],
-  "Laser": ["laser"],
+  "Whitening Laser": ["whitening laser", "intense ua whitening", "ua whitening laser", "underarm whitening laser"],
+  "Laser Hair Removal": ["laser hair", "hair removal laser", "ua hair removal", "underarm hair laser", "ua hair laser"],
+  "Lips Hair Removal": ["lips hair", "upper lip", "lower lip", "balbas", "mustache removal"],
+  "Laser": ["laser", "lasering"],
 
   // Diode hair removal
-  "Diode Hair Removal": ["diode", "hair removal"],
+  "Diode Hair Removal": [
+    "diode", "hair removal", "hair remov",
+    // UA = underarm — very common abbreviation in Filipino beauty context
+    "ua hair", "ua removal", "ua laser",
+    "underarm hair", "kilikili hair", "armpit hair",
+    "hair sa ua", "hair sa kilikili", "hair sa underarm",
+    "waxing", "shaving", "tanggalin buhok", "alisin buhok",
+    "buhok sa", "unwanted hair", "hair reduction",
+    "leg hair", "arm hair", "bikini hair", "pubic hair",
+    "full body hair", "brazilian", "hollywood wax",
+  ],
 
   // HIFU / Skin Tightening
-  "7D Ultraforma HIFU": ["7d", "ultraforma", "ultraformer", "hifu"],
-  "Thermagic": ["thermagic", "thermage"],
-  "ExiSlim": ["exislim", "exi slim"],
-  "Skin Tightening": ["skin tightening", "tightening", "rf", "lifting", "anti aging", "anti-aging", "sagging", "loose skin", "face lift", "facelift", "jaw", "jawline", "v-shape", "vshape"],
+  "7D Ultraforma HIFU": ["7d", "ultraforma", "ultraformer", "hifu", "7d hifu", "ultra forma"],
+  "Thermagic": ["thermagic", "thermage", "therma magic"],
+  "ExiSlim": ["exislim", "exi slim", "exis slim", "exislim body", "exislim face"],
+  "Skin Tightening": [
+    "skin tightening", "tightening", "rf", "lifting", "anti aging", "anti-aging",
+    "sagging", "loose skin", "face lift", "facelift", "jaw", "jawline",
+    "v-shape", "vshape", "v shape", "v-line", "vline", "naka v", "makinis",
+    "skin firming", "firming", "tighten", "snatched", "snatch",
+  ],
 
   // Slimming
-  "Lemon Bottle Fat Dissolve": ["lemon bottle", "lemon"],
-  "Mesolipo": ["mesolipo", "meso lipo", "meso"],
-  "Slimming": ["slimming", "fat dissolve", "fat dissolving", "emshape", "vline", "v-line", "tummy", "belly", "love handle", "bra line", "double chin", "pwayto", "payat", "slim"],
+  "Lemon Bottle Fat Dissolve": ["lemon bottle", "lemon", "lb fat", "lemon fat"],
+  "Mesolipo": ["mesolipo", "meso lipo", "meso", "mezo"],
+  "Slimming": [
+    "slimming", "fat dissolve", "fat dissolving", "emshape", "vline", "v-line",
+    "tummy", "belly", "love handle", "bra line", "double chin", "pwayto", "payat", "slim",
+    "pampapayat", "pampaputi ng tiyan", "tiyan", "fat removal", "tabain",
+    "maiipon", "sobrang taba", "pampababa ng timbang",
+  ],
 
   // IV Drips
   "Immune Booster Drip": ["immune booster", "immune drip"],
   "Premium Bella Drip": ["bella", "premium bella"],
   "VIP Celestial Drip": ["celestial", "vip celestial"],
-  "Snow White Drip": ["snow white"],
+  "Snow White Drip": ["snow white", "snow white drip"],
   "Ultimate Goddess Drip": ["goddess", "ultimate goddess"],
-  "Glutathione IV Drip": ["glutathione", "gluta", "iv drip", "drip", "whitening drip"],
+  "Glutathione IV Drip": [
+    "glutathione", "gluta", "iv drip", "drip", "whitening drip",
+    "iv", "iv therapy", "iv vitamins", "intravenous", "pampaputin",
+    "skin whitening drip", "gluta drip",
+  ],
 
   // Boosters
   "Vitamin C Booster": ["vitamin c", "vit c"],
@@ -54,10 +78,10 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   "L-Carnitine Booster": ["l-carnitine", "carnitine"],
 
   // Warts
-  "Warts Removal": ["warts", "wart"],
+  "Warts Removal": ["warts", "wart", "skin tag", "skin tags", "tahi", "kulubot", "butil sa balat"],
 
   // Botox / Filler (kept for inquiries even if not on menu)
-  "Botox / Filler": ["botox", "filler"],
+  "Botox / Filler": ["botox", "filler", "dermal filler"],
 };
 
 const DATE_KEYWORDS = ["today", "tomorrow", "ngayon", "bukas", "monday", "tuesday",
@@ -81,11 +105,33 @@ const SERVICES_KEYWORDS = [
 const PROMOS_KEYWORDS = ["promo", "discount", "sale", "offer", "deals", "mura", "special", "free", "package", "bundle", "installment"];
 const STAFF_KEYWORDS = ["staff", "talk", "human", "agent", "tawo", "tao", "admin", "help", "contact", "call", "number", "address", "location", "saan kayo", "nasaan"];
 
+// Standalone short abbreviations (≤3 chars) that need word-boundary matching
+// to avoid false-positives (e.g. "ua" in "natural", "iv" in "alive")
+const SHORT_ABBREV_MAP: Record<string, string> = {
+  ua: "Diode Hair Removal",  // UA = underarm hair removal (most common usage)
+  lb: "Lemon Bottle Fat Dissolve", // LB = Lemon Bottle
+  iv: "Glutathione IV Drip",        // IV = IV drip
+};
+
 export function detectService(text: string): string | null {
-  const lower = text.toLowerCase();
+  const lower = text.toLowerCase().trim();
+
+  // First pass: check short abbreviations as whole words
+  for (const [abbr, service] of Object.entries(SHORT_ABBREV_MAP)) {
+    const regex = new RegExp(`\\b${abbr}\\b`, "i");
+    if (regex.test(lower)) return service;
+  }
+
+  // Second pass: check all service keywords (longer phrases)
   for (const [service, keywords] of Object.entries(SERVICE_KEYWORDS)) {
     for (const kw of keywords) {
-      if (lower.includes(kw)) return service;
+      if (kw.length <= 3) {
+        // Short keyword — require word boundary to avoid partial matches
+        const regex = new RegExp(`\\b${kw}\\b`, "i");
+        if (regex.test(lower)) return service;
+      } else {
+        if (lower.includes(kw)) return service;
+      }
     }
   }
   return null;

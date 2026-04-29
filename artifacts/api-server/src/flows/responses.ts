@@ -473,6 +473,80 @@ export function getDescriptionForService(service: string): string | null {
   return SERVICE_DESCRIPTIONS[cat] ?? null;
 }
 
+// ─── Service Combo Upsell ─────────────────────────────────────────────────────
+// Each entry = 3 sequential messages: simple explanation → upsell → why combo
+
+export type ServiceCombo = {
+  explain: string;
+  upsell: string;
+  whyCombo: string;
+};
+
+export const SERVICE_UPSELL_COMBOS: Record<string, ServiceCombo> = {
+  "Facial": {
+    explain:
+      `💆 What is a Facial?\n\nIn simple terms — it deeply cleanses, exfoliates, and hydrates your skin. Perfect for:\n✔️ Removing blackheads, unclogging pores\n✔️ Reducing pimples and oiliness\n✔️ Instant brightening and that fresh, glowing look\n\nNo downtime. You can go straight back to your day after! Starting at ₱299 💕`,
+    upsell:
+      `💡 Want to level up your results?\n\nPair your Facial with a Pico Carbon Peel Laser or Skin Rejuvè Laser! Laser treatments go deeper to target pigmentation and tighten pores that a facial alone can't reach. 🔥`,
+    whyCombo:
+      `✨ Facial + Laser = the ultimate glow combo\n\n💆 Facial deep-cleanses and hydrates the skin surface\n🔥 Laser targets deeper pigmentation, pores, and dark spots\n💪 Together = brighter, clearer, smoother skin — inside and out\n🚫 Both are non-invasive with zero downtime\n\nThe combo gives you faster, longer-lasting glow than either treatment alone 💕`,
+  },
+
+  "Microneedling": {
+    explain:
+      `💉 What is Microneedling?\n\nTiny needles create micro-channels in your skin, triggering your body's natural collagen production. Great for:\n✔️ Fading acne scars and dark spots\n✔️ Minimizing open pores\n✔️ Smoothing uneven skin texture\n✔️ Anti-aging and skin renewal\n\nResults keep improving for 2–4 weeks after the session. Starting at ₱599 💕`,
+    upsell:
+      `💡 Want even faster, deeper results?\n\nPair Microneedling with an IV Drip (Collagen or Snow White Drip)! While microneedling rebuilds collagen from the outside, IV Drip floods your skin with nutrients from the inside. 💧✨`,
+    whyCombo:
+      `✨ Microneedling + IV Drip = the ultimate skin renewal combo\n\n💉 Microneedling stimulates collagen and repair from outside\n💧 IV Drip boosts skin nutrients and antioxidants from inside\n💪 Together = faster healing, deeper glow, and longer-lasting results\n🚫 No surgery. No downtime needed.\n\nYour skin literally gets rebuilt inside and out 💕`,
+  },
+
+  "Laser": {
+    explain:
+      `🔥 What is Laser Treatment?\n\nLaser uses focused light energy to target specific skin issues — without injections. Great for:\n✔️ Whitening underarms, nape, elbows, and knees (Skin Rejuvè)\n✔️ Deep cleanse + brightening (Pico Carbon Peel)\n✔️ Removing unwanted hair (UA Laser)\n✔️ Reducing pigmentation and evening out skin tone\n\nSessions are quick — usually 20–30 minutes. Starting at ₱599 💕`,
+    upsell:
+      `💡 Want even better and longer-lasting results?\n\nPair Laser with a Facial (Diamond Peel or HydraGlow)! The facial preps your skin before the laser and keeps it hydrated and healthy after each session. 💆✨`,
+    whyCombo:
+      `✨ Laser + Facial = the complete brightening combo\n\n🔥 Laser targets the root cause — pigmentation, hair, and dark spots\n💆 Facial soothes, hydrates, and maintains the results after each session\n💪 Together = faster brightening, healthier skin, longer-lasting glow\n🚫 Both are non-invasive, safe, and require zero downtime\n\nYou'll notice a bigger difference when you combine both 💕`,
+  },
+
+  "Hair Removal": {
+    explain:
+      `✨ What is Diode Hair Removal?\n\nDiode laser permanently reduces unwanted hair by targeting and disabling the hair follicle. Great for:\n✔️ Underarms (UA), legs, arms, face, bikini area\n✔️ Long-lasting smooth skin — no more shaving or waxing\n✔️ Reducing ingrown hairs\n✔️ Finer, lighter hair regrowth over sessions\n\nSessions are quick and virtually painless. Starting at ₱499 💕`,
+    upsell:
+      `💡 Want smooth AND bright skin at the same time?\n\nPair Diode Hair Removal with our Intense UA Whitening Laser! While the hair removal takes care of unwanted hair, the whitening laser brightens and evens out the skin tone in the same area. 🔥`,
+    whyCombo:
+      `✨ Hair Removal + UA Whitening Laser = smoother AND brighter combo\n\n✂️ Hair Removal gives you silky smooth, hair-free skin\n🔥 UA Whitening Laser brightens dark underarm, knee, or elbow area\n💪 Together = no hair, no dark spots — just clear and even skin\n🚫 Both are non-surgical with minimal recovery time\n\nWhy do two separate treatments later when you can get both benefits now? 💕`,
+  },
+
+  "HIFU / Skin Tightening": {
+    explain:
+      `🎯 What is HIFU / Skin Tightening?\n\nHIFU (High-Intensity Focused Ultrasound) lifts and tightens your skin without surgery. Great for:\n✔️ Lifting sagging cheeks, jaw, and neck\n✔️ Reducing double chin\n✔️ Tightening loose skin on tummy, arms, and thighs\n✔️ Non-surgical anti-aging — results last 6–12 months\n\nOne session, visible results. Starting at ₱699 💕`,
+    upsell:
+      `💡 Want faster and longer-lasting results?\n\nPair HIFU / Skin Tightening with an IV Drip (Collagen + Placenta Booster)! HIFU tightens from the outside, while the Collagen IV Drip rebuilds your skin structure from within. 💧✨`,
+    whyCombo:
+      `✨ HIFU + IV Drip = the ultimate lift and tighten combo\n\n🎯 HIFU physically lifts and tightens the skin from the outside\n💧 Collagen IV Drip rebuilds skin elasticity from inside\n💪 Together = faster visible lift, firmer skin, longer-lasting results\n🚫 No surgery. No downtime.\n\nIt's like giving your skin a double boost — from the inside and outside at the same time 💕`,
+  },
+
+  "IV Drip": {
+    explain:
+      `💧 What is IV Drip / Glutathione Drip?\n\nIV Drips deliver vitamins, glutathione, and nutrients directly into your bloodstream — so your body absorbs 100% of it. Great for:\n✔️ Skin whitening and brightening (Glutathione)\n✔️ Boosting energy and immunity\n✔️ Anti-aging and collagen support\n✔️ Overall detox and wellness\n\nEach session takes about 30–45 minutes. Starting at ₱499 💕`,
+    upsell:
+      `💡 Want to see faster whitening results on your skin?\n\nPair your IV Drip with a Skin Rejuvè Laser or Intense UA Whitening Laser! The IV Drip whitens your skin from the inside, and the Laser brightens from the outside. 🔥`,
+    whyCombo:
+      `✨ IV Drip + Laser = the double whitening combo\n\n💧 IV Drip delivers glutathione directly into your bloodstream for deep, systemic whitening\n🔥 Whitening Laser targets dark spots, pigmentation, and surface skin tone\n💪 Together = faster, more visible brightening — from inside AND outside\n🚫 Both treatments are safe, non-invasive, and can be done the same day\n\nThis is the most popular combo for clients who want that real, even-toned glow 💕`,
+  },
+
+  "Warts Removal": {
+    explain:
+      `🩹 What is Warts Removal?\n\nA quick, safe procedure that removes skin warts, skin tags, and small benign growths. Great for:\n✔️ Warts on face, neck, body, or hands\n✔️ Skin tags (tahi) removal\n✔️ Smoother, clearer skin right after\n\nThe procedure takes only a few minutes. Healing is usually 3–7 days. Starting at ₱599 💕`,
+    upsell:
+      `💡 Want to maximize your smooth skin results?\n\nOnce your skin heals, pair it with a Facial (Diamond Peel or HydraGlow)! The facial will smooth out the treated areas and rejuvenate the surrounding skin. 💆✨`,
+    whyCombo:
+      `✨ Warts Removal + Facial = the complete clear skin combo\n\n🩹 Warts Removal clears the unwanted growths fast\n💆 Facial smooths, brightens, and rejuvenates the skin after healing\n💪 Together = clearer, smoother, and healthier-looking skin overall\n🚫 Both are minimally invasive — done in one clinic visit!\n\nRemove what doesn't belong, then refresh the skin beneath 💕`,
+  },
+};
+
 // ─── Per-category Pricelists ──────────────────────────────────────────────────
 // Sent when a customer asks about a specific service or category.
 

@@ -39,6 +39,7 @@ import {
   getPricelistForService,
   getPromosForService,
   getDescriptionForService,
+  SERVICE_UPSELL_COMBOS,
   randomPick,
 } from "./responses";
 import { logger } from "../lib/logger";
@@ -61,6 +62,7 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
   setSession(psid, { step: "awaiting_book_decision", service });
   upsertClient({ psid, service, leadStatus: "browsing" }).catch(() => {});
 
+  // Show pricelist first
   if (pricelist) {
     await sendWithDelay(psid, pricelist, 1200);
   } else {
@@ -71,7 +73,7 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
     );
   }
 
-  // Slimming: show promos upfront + sub-option buttons for Lemon Bottle vs Mesolipo
+  // ── Slimming: special sub-flow (Lemon Bottle vs Mesolipo) ──────────────────
   const isSlimming = service === "Slimming / Fat Dissolve" || service === "Slimming";
   if (isSlimming) {
     for (const promo of matchingPromos) {
@@ -91,15 +93,39 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
     return;
   }
 
-  const promoButton = matchingPromos.length > 0
+  // ── All other services: explain → upsell combo → book question ─────────────
+  // Find the combo using the service name, falling back to category-level key
+  const comboKey = Object.keys(SERVICE_UPSELL_COMBOS).find((k) =>
+    service.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(service.toLowerCase())
+  );
+  const combo = comboKey ? SERVICE_UPSELL_COMBOS[comboKey] : null;
+
+  if (combo) {
+    // 1. Simple explanation
+    await sendWithDelay(psid, combo.explain, 1600);
+
+    // 2. Upsell — combo suggestion
+    await sendWithDelay(psid, combo.upsell, 2000);
+
+    // 3. Why this combo is the best
+    await sendWithDelay(psid, combo.whyCombo, 2000);
+  }
+
+  // 4. Any active promos
+  for (const promo of matchingPromos) {
+    await sendWithDelay(psid, promo, 1400);
+  }
+
+  // 5. Book question
+  const promoButton = matchingPromos.length > 0 && !combo
     ? [{ title: "🎉 View Promos", payload: "INTENT_PROMOS" }]
     : [];
 
   await sendWithDelayAndQuickReplies(
     psid,
-    `Would you like to book ${service}? 😊`,
+    `Would you like me to book you now? 😊`,
     [
-      { title: "📅 Book Now", payload: "BOOK_NOW" },
+      { title: "✅ Yes, Book Now!", payload: "BOOK_NOW" },
       ...promoButton,
       { title: "💆 Other Services", payload: "INTENT_SERVICES" },
       { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
@@ -473,14 +499,41 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
 
   // Mesolipo sub-selection (after slimming screening)
   if (payload === "SVC_MESOLIPO") {
-    setSession(psid, { step: "entering_date", service: "Mesolipo", retryCount: 0 });
-    upsertClient({ psid, service: "Mesolipo", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelay(psid, `💉 Great choice! Mesolipo is a precision cocktail of fat-dissolving agents — perfect for face, arms, tummy, and bra line contouring.\n\nStarting at ₱1,099 per area 💕`, 1000);
+    setSession(psid, { step: "awaiting_book_decision", service: "Mesolipo", retryCount: 0, screeningPassed: true });
+    upsertClient({ psid, service: "Mesolipo", status: "inquiry" }).catch(() => {});
+
+    // 1. Simple explanation
+    await sendWithDelay(
+      psid,
+      `💉 What is Mesolipo?\n\nMesolipo is a precise cocktail of fat-dissolving agents injected directly into targeted fat pockets. Perfect for:\n✔️ Cheeks, jaw, and double chin contouring\n✔️ Arms, bra line, and love handles\n✔️ Tummy and thigh slimming\n\n✅ Precise and targeted — works on smaller, stubborn areas\n✅ Visible contouring in as little as 2–4 weeks\n✅ Non-surgical, minimal downtime\n✅ Starting at ₱1,099 per area 💕`,
+      1200,
+    );
+
+    // 2. Upsell with ExiSlim
+    await sendWithDelay(
+      psid,
+      `💡 Want sharper, more defined results?\n\nPair Mesolipo with our ExiSlim body contouring treatment! ExiSlim uses Radiofrequency to tighten the skin and sculpt the treated area — the perfect finishing touch after Mesolipo dissolves the fat. 🔥`,
+      1800,
+    );
+
+    // 3. Why this combo is the best
+    await sendWithDelay(
+      psid,
+      `✨ Mesolipo + ExiSlim = the precision sculpting combo\n\n💉 Mesolipo breaks down fat in targeted pockets\n⚡ ExiSlim tightens skin and defines the contour\n💪 Together = slimmer + tighter + more sculpted results\n🚫 No surgery. No general anesthesia. No long downtime.\n\nYou get a snatched, defined body shape — done right 💕`,
+      2000,
+    );
+
+    // 4. Book question
     await sendWithDelayAndQuickReplies(
       psid,
-      `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1000,
+      `Would you like me to book you now? 😊`,
+      [
+        { title: "✅ Yes, Book Now!", payload: "BOOK_NOW" },
+        { title: "🍋 Try Lemon Bottle Instead", payload: "SVC_LEMON_BOTTLE" },
+        { title: "💆 Other Services", payload: "INTENT_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+      ],
+      1200,
     );
     return;
   }
