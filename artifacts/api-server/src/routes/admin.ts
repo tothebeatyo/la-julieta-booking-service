@@ -58,6 +58,8 @@ router.get("/clients", authMiddleware as unknown as (req: Request, res: Response
 
     let query: { text: string; values: unknown[] };
 
+    const { anypluspro_status } = req.query as Record<string, string>;
+
     if (safety_flag === "pregnant") {
       query = {
         text: "SELECT * FROM clients WHERE safety_flags LIKE '%pregnant%' ORDER BY updated_at DESC",
@@ -67,6 +69,11 @@ router.get("/clients", authMiddleware as unknown as (req: Request, res: Response
       query = {
         text: "SELECT * FROM clients WHERE safety_flags LIKE '%injection_allergy%' ORDER BY updated_at DESC",
         values: [],
+      };
+    } else if (anypluspro_status && anypluspro_status !== "all") {
+      query = {
+        text: "SELECT * FROM clients WHERE anypluspro_status = $1 ORDER BY updated_at DESC",
+        values: [anypluspro_status],
       };
     } else if (lead_status && lead_status !== "all") {
       query = {
@@ -117,13 +124,51 @@ router.get("/stats", authMiddleware as unknown as (req: Request, res: Response) 
         COUNT(*) FILTER (WHERE lead_status = 'booking_requested' OR lead_status = 'booking_confirmed') AS bookings,
         COUNT(*) FILTER (WHERE lead_status = 'escalated') AS escalated,
         COUNT(*) FILTER (WHERE safety_flags IS NOT NULL AND safety_flags != 'none') AS safety_flagged,
-        COUNT(*) FILTER (WHERE lead_status = 'skin_concern_inquiry') AS skin_concerns
+        COUNT(*) FILTER (WHERE lead_status = 'skin_concern_inquiry') AS skin_concerns,
+        COUNT(*) FILTER (WHERE anypluspro_status = 'auto_booked') AS auto_booked,
+        COUNT(*) FILTER (WHERE anypluspro_status = 'manual_booking_required') AS manual_booking_required,
+        COUNT(*) FILTER (WHERE email IS NOT NULL) AS with_email,
+        COUNT(*) FILTER (WHERE email_consent = TRUE) AS email_consented
       FROM clients
     `);
     res.json(result.rows[0]);
   } catch (err) {
     logger.error({ err }, "Error fetching stats");
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+// POST /api/admin/clients/:psid/retry-booking
+router.post("/clients/:psid/retry-booking", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
+  try {
+    const { psid } = req.params;
+    const { retryAutoBooking } = await import("../services/anyplusService");
+    const result = await retryAutoBooking(psid);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "Error retrying auto booking");
+    res.status(500).json({ error: "Failed to retry booking" });
+  }
+});
+
+// POST /api/admin/clients/:psid/mark-manually-booked
+router.post("/clients/:psid/mark-manually-booked", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
+  try {
+    const { psid } = req.params;
+    await pool.query(
+      `UPDATE clients SET
+        status = 'confirmed',
+        lead_status = 'booking_confirmed',
+        anypluspro_status = 'auto_booked',
+        updated_at = NOW()
+       WHERE psid = $1`,
+      [psid]
+    );
+    logger.info({ psid }, "Client marked as manually booked");
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Error marking as manually booked");
+    res.status(500).json({ error: "Failed to mark as manually booked" });
   }
 });
 

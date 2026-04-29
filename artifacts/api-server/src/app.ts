@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import path from "path";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import webhookRouter from "./routes/webhook";
@@ -36,6 +36,11 @@ app.use(express.urlencoded({ extended: true }));
 // Webhook and API routes FIRST — highest priority
 app.use("/webhook", webhookRouter);
 app.use("/api", router);
+
+// Serve AnyPlusPro screenshots (logs/screenshots/) at /logs/screenshots/
+const screenshotsDir = path.resolve("logs/screenshots");
+if (!existsSync(screenshotsDir)) mkdirSync(screenshotsDir, { recursive: true });
+app.use("/logs/screenshots", express.static(screenshotsDir));
 
 // Serve the React frontend (chatbot-landing) build output
 // Resolve relative to this file's location so it works in both dev (src/) and production (dist/)

@@ -41,3 +41,6 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
+ANYPLUSPRO_BRANCH_NAME = "Paranaque"
+ANYPLUSPRO_DEFAULT_STAFF = "Laicel Esporlas"
+ANYPLUSPRO_HEADLESS = "true"

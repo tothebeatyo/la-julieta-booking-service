@@ -9,7 +9,8 @@ export type BookingStep =
   | "entering_time"
   | "entering_name"
   | "entering_mobile"
-  | "confirming"
+  | "entering_email"
+  | "final_confirming"
   | "done";
 
 export type MessageChannel = "messenger" | "instagram";
@@ -21,6 +22,9 @@ export interface UserState {
   time?: string;
   name?: string;
   mobile?: string;
+  email?: string;
+  emailConsent?: boolean;
+  notes?: string;
   retryCount: number;
   channel: MessageChannel;
   concern?: string;

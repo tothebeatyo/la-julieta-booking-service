@@ -1,0 +1,229 @@
+Upgrade my existing Facebook Messenger + Instagram DM chatbot system for Lajulieta Beauty Paranaque.
+
+Important:
+
+* Facebook Messenger is already set up.
+* Instagram DM is already set up.
+* Telegram admin alerts are already set up.
+* Admin dashboard and chat logs already exist.
+* Do NOT rebuild from scratch.
+* Keep all existing tokens, webhooks, dashboard, logs, and database.
+* Only enhance the existing system.
+
+Goal:
+When a client messages Facebook Messenger or Instagram DM, the bot should:
+
+1. Answer professionally in English with light Taglish.
+2. Guide them through service inquiry.
+3. Explain service benefits simply, no medical jargon.
+4. Ask safety questions when needed.
+5. Collect booking details.
+6. Ask for optional email consent.
+7. Validate schedule.
+8. Ask final confirmation.
+9. When client replies YES, attempt AnyPlusPro browser auto-booking.
+10. If successful, update dashboard and send Telegram alert.
+11. If failed, save screenshot/error, update dashboard, and alert staff for manual booking.
+
+Clinic details:
+Name: Lajulieta Beauty Paranaque
+Location: One Oasis Bldg., Jackie Lou Ville Ave., BF Homes, Parañaque, Philippines, 1720
+Hours: Tuesday to Sunday, 9:00 AM to 6:00 PM
+Closed: Monday
+Default staff: Laicel Esporlas
+Branch: Paranaque
+
+Add / update these modules:
+
+* `consultation_engine.py`
+* `intent_detector.py`
+* `anypluspro_browser.py`
+* `service_keywords.json`
+
+Booking flow:
+Collect:
+
+* full name
+* contact number
+* email optional
+* preferred date
+* preferred time
+* service / concern
+* notes
+* source channel: facebook_messenger or instagram_dm
+* sender ID / PSID / IG ID
+* display name if available
+
+Email collection message:
+“May we also get your email address? 😊
+We’ll use it for appointment updates, promos, and exclusive offers.
+
+By sharing your email, you agree to receive appointment updates and promotional offers from Lajulieta Beauty Paranaque. You can opt out anytime.
+
+You may type SKIP if you prefer not to share.”
+
+Schedule validation:
+Only allow Tuesday to Sunday, 9:00 AM to 6:00 PM.
+If Monday or outside hours:
+“Sorry, we’re closed at that time 😊 Our clinic is open Tuesday to Sunday, 9:00 AM to 6:00 PM only. Would you like to choose another schedule?”
+
+Final confirmation:
+“Please confirm your booking request:
+
+Name:
+Contact:
+Email:
+Service/Concern:
+Date:
+Time:
+
+Reply YES to confirm or CHANGE to edit.”
+
+If YES:
+
+* status = client_confirmed
+* attempt AnyPlusPro browser automation
+
+AnyPlusPro browser automation:
+Use Playwright.
+File: `anypluspro_browser.py`
+
+Steps:
+
+1. Login to AnyPlusPro.
+2. Select branch Paranaque if needed.
+3. Go to POS → Appointments.
+4. Click “Book Appointment”.
+5. Search patient by mobile number first.
+6. If found, select patient.
+7. If not found, click “Register New”.
+8. Register patient:
+
+   * first name
+   * last name
+   * mobile number
+   * email if provided
+   * date of birth blank unless provided
+   * gender blank unless provided
+   * lead source: Facebook Messenger if available, otherwise Facebook or Online
+   * patient manager: Laicel Esporlas if available
+   * notes: Created from [channel] AI Bot. Concern: [concern]. User Name: [name]. Channel ID: [sender_id]. Email consent: [yes/no].
+9. Search service by service name/concern text, not service_id.
+10. Select closest matching visible service.
+11. Set date.
+12. Set time.
+13. Assigned Staff: Laicel Esporlas.
+14. Room/Area: skip / leave blank.
+15. Notes: Booking from [channel] AI Bot. Concern: [concern]. User Name: [name]. Channel ID: [sender_id].
+16. Click “Book Appointment”.
+17. Detect success or failure.
+18. Save screenshot to `logs/screenshots/`.
+
+Service matching:
+Use editable `service_keywords.json`:
+{
+"acne": ["acne", "acne facial", "pimple"],
+"facial": ["facial", "cleaning", "basic facial"],
+"gluta": ["gluta", "drip", "whitening"],
+"anti_aging": ["anti-aging", "anti aging", "rf", "thermage"],
+"slimming": ["slimming", "rf", "skin tightening"]
+}
+
+If no service match:
+
+* choose consultation if available
+* otherwise stop automation
+* mark manual_booking_required
+* send Telegram alert: “Service match not found”
+
+Safety screening:
+Before injectables / gluta / drip services, ask:
+
+* pregnant?
+* breastfeeding / lactating?
+* allergy to injections?
+* taking medication?
+* any medical condition?
+
+If yes to any:
+Do not recommend injectables.
+Suggest consultation or non-invasive facial option.
+
+Talk to Agent:
+If user clicks/types agent, admin, staff, human, representative:
+Reply:
+“Of course 😊 I’ll notify our staff so they can assist you personally. Please wait for our team’s reply 💖”
+
+Send Telegram alert:
+🚨 TALK TO AGENT REQUEST
+Channel:
+Name:
+Sender ID:
+Last Message:
+Concern/Intent:
+Time:
+
+Dashboard upgrades:
+Add filters/fields:
+
+* source channel
+* lead status
+* concern / intent
+* recommended service
+* safety flags
+* email
+* email consent
+* preferred date/time
+* booking status
+* AnyPlusPro auto status
+* AnyPlusPro error
+* screenshot link
+* escalated status
+
+Add dashboard buttons:
+
+* Retry Browser Auto Booking
+* Mark Manually Booked
+* Mark Confirmed
+* Cancel
+
+Status values:
+
+* new
+* engaged
+* recommended
+* booking_requested
+* client_confirmed
+* auto_booked
+* manual_booking_required
+* escalated
+* cancelled
+
+Telegram alerts:
+Use existing TELEGRAM_BOT_TOKEN and TELEGRAM_ADMIN_CHAT_ID.
+Do not create a new bot.
+
+Environment variables needed:
+ANYPLUSPRO_LOGIN_URL=
+ANYPLUSPRO_USERNAME=
+ANYPLUSPRO_PASSWORD=
+ANYPLUSPRO_BRANCH_NAME=Paranaque
+ANYPLUSPRO_DEFAULT_STAFF=Laicel Esporlas
+ANYPLUSPRO_HEADLESS=true
+
+Security:
+
+* Never expose tokens or passwords in logs.
+* Do not double-book if already auto_booked.
+* If automation fails, screenshot error and require manual booking.
+* Preserve existing Messenger, Instagram, dashboard, logs, and tokens.
+
+Final output:
+Explain:
+
+* files changed
+* new secrets needed
+* how to test Facebook Messenger flow
+* how to test Instagram DM flow
+* how to test Talk to Agent
+* how to test AnyPlusPro auto-booking

@@ -33,6 +33,9 @@ import {
   SAFETY_FAIL_MESSAGE,
   SAFETY_PASS_MESSAGE,
   YES_NO_QUICK_REPLIES,
+  EMAIL_COLLECTION_MESSAGE,
+  SCHEDULE_CLOSED_MESSAGE,
+  validateSchedule,
   getPricelistForService,
   getPromosForService,
   getDescriptionForService,
@@ -139,6 +142,13 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
   logger.info({ psid, step: session.step, text, payload }, "Booking flow step");
 
+  // Skip email quick reply
+  if (payload === "SKIP_EMAIL") {
+    setSession(psid, { email: undefined, emailConsent: false });
+    await showFinalConfirmation(psid);
+    return;
+  }
+
   // Safety screening answer
   if (session.step === "safety_screening") {
     await handleSafetyScreening(psid, text, payload);
@@ -192,8 +202,12 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
       await handleMobileEntry(psid, text);
       break;
     }
-    case "confirming": {
-      await handleConfirmation(psid, text, payload);
+    case "entering_email": {
+      await handleEmailEntry(psid, text);
+      break;
+    }
+    case "final_confirming": {
+      await handleFinalConfirmation(psid, text, payload);
       break;
     }
     default: {
@@ -577,6 +591,17 @@ async function handleDateEntry(psid: string, text: string): Promise<void> {
   const dateValue = detectDateKeyword(text) || (text.trim().length >= 3 ? text.trim() : null);
 
   if (dateValue) {
+    // Check if it's Monday (we'll do full schedule check once we have the time too)
+    const scheduleError = validateSchedule(dateValue, "10:00 AM"); // only check day here
+    if (scheduleError && scheduleError === SCHEDULE_CLOSED_MESSAGE) {
+      await sendWithDelayAndQuickReplies(
+        psid,
+        scheduleError,
+        [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }],
+        1200,
+      );
+      return;
+    }
     setSession(psid, { step: "entering_time", date: dateValue, retryCount: 0 });
     upsertClient({ psid, bookingDate: dateValue }).catch(() => {});
     await sendWithDelayAndQuickReplies(
@@ -590,7 +615,7 @@ async function handleDateEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}What day are you available? (e.g. 'tomorrow', 'April 25', 'Saturday')`,
+      `${randomPick(RETRY_MESSAGES)}What day are you available? (e.g. 'tomorrow', 'April 25', 'Saturday')\n\nWe're open Tuesday to Sunday only 😊`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -601,11 +626,28 @@ async function handleTimeEntry(psid: string, text: string): Promise<void> {
   const timePattern = /\b(\d{1,2}(:\d{2})?\s*(am|pm|AM|PM)?)\b|(morning|afternoon|evening|umaga|tanghali|hapon|gabi)/i;
 
   if (timePattern.test(text) || text.trim().length >= 2) {
-    setSession(psid, { step: "entering_name", time: text.trim(), retryCount: 0 });
-    upsertClient({ psid, bookingTime: text.trim() }).catch(() => {});
+    const s = getSession(psid);
+    const timeValue = text.trim();
+
+    // Validate full schedule (date + time)
+    if (s.date) {
+      const scheduleError = validateSchedule(s.date, timeValue);
+      if (scheduleError) {
+        await sendWithDelayAndQuickReplies(
+          psid,
+          scheduleError,
+          [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }],
+          1200,
+        );
+        return;
+      }
+    }
+
+    setSession(psid, { step: "entering_name", time: timeValue, retryCount: 0 });
+    upsertClient({ psid, bookingTime: timeValue }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `${text.trim()} — perfect! 🕐 ${randomPick(NAME_PROMPTS)}`,
+      `${timeValue} — perfect! 🕐 ${randomPick(NAME_PROMPTS)}`,
       TALK_TO_STAFF_QR,
       1200,
     );
@@ -614,7 +656,7 @@ async function handleTimeEntry(psid: string, text: string): Promise<void> {
     setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
     await sendWithDelayAndQuickReplies(
       psid,
-      `${randomPick(RETRY_MESSAGES)}What time? (e.g. '10am', '2pm', '3:30 PM')`,
+      `${randomPick(RETRY_MESSAGES)}What time? (e.g. '10am', '2pm', '3:30 PM')\n\nWe're open 9:00 AM to 6:00 PM 😊`,
       TALK_TO_STAFF_QR,
       1000,
     );
@@ -649,27 +691,13 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
   const mobilePattern = /^(\+63|0)[0-9]{9,10}$|^\d{7,11}$/;
 
   if (mobilePattern.test(mobile)) {
-    setSession(psid, { step: "confirming", mobile, retryCount: 0 });
+    setSession(psid, { step: "entering_email", mobile, retryCount: 0 });
     upsertClient({ psid, mobile, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    const s = getSession(psid);
-    const summary =
-      `Just to confirm 💖\n\n` +
-      `📋 𝗕𝗼𝗼𝗸𝗶𝗻𝗴 𝗗𝗲𝘁𝗮𝗶𝗹𝘀\n` +
-      `💆 Service: ${s.service}\n` +
-      `📅 Date: ${s.date}\n` +
-      `🕐 Time: ${s.time}\n` +
-      `👤 Name: ${s.name}\n` +
-      `📱 Mobile: ${mobile}`;
-
     await sendWithDelayAndQuickReplies(
       psid,
-      summary,
-      [
-        { title: "✅ Confirm", payload: "CONFIRM_BOOKING" },
-        { title: "✏️ Edit", payload: "EDIT_BOOKING" },
-        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
-      ],
-      1500,
+      EMAIL_COLLECTION_MESSAGE,
+      [{ title: "⏭ Skip Email", payload: "SKIP_EMAIL" }],
+      1400,
     );
   } else {
     const s = getSession(psid);
@@ -683,63 +711,135 @@ async function handleMobileEntry(psid: string, text: string): Promise<void> {
   }
 }
 
-async function handleConfirmation(psid: string, text: string, payload?: string): Promise<void> {
+async function handleEmailEntry(psid: string, text: string): Promise<void> {
+  const isSkip = /^skip$/i.test(text.trim());
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidEmail = emailPattern.test(text.trim());
+
+  const email = isSkip ? undefined : (isValidEmail ? text.trim().toLowerCase() : undefined);
+  const emailConsent = !isSkip && isValidEmail;
+
+  if (!isSkip && !isValidEmail && text.trim().length > 2) {
+    // Looks like they tried to type an email but it's invalid
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "Hmm, that doesn't look like a valid email address 😊 Please enter a valid email or type SKIP.",
+      [{ title: "⏭ Skip Email", payload: "SKIP_EMAIL" }],
+      1000,
+    );
+    return;
+  }
+
+  setSession(psid, { email, emailConsent, retryCount: 0 });
+  upsertClient({ psid, email, emailConsent }).catch(() => {});
+
+  await showFinalConfirmation(psid);
+}
+
+async function showFinalConfirmation(psid: string): Promise<void> {
+  const s = getSession(psid);
+  setSession(psid, { step: "final_confirming" });
+
+  const emailLine = s.email ? `📧 Email: ${s.email}` : `📧 Email: Not provided`;
+  const summary =
+    `Please confirm your booking request:\n\n` +
+    `👤 Name: ${s.name}\n` +
+    `📱 Contact: ${s.mobile}\n` +
+    `${emailLine}\n` +
+    `💆 Service/Concern: ${s.service}\n` +
+    `📅 Date: ${s.date}\n` +
+    `🕐 Time: ${s.time}\n\n` +
+    `Reply YES to confirm or CHANGE to edit.`;
+
+  await sendWithDelayAndQuickReplies(
+    psid,
+    summary,
+    [
+      { title: "✅ YES — Confirm", payload: "CONFIRM_BOOKING" },
+      { title: "✏️ CHANGE — Edit", payload: "EDIT_BOOKING" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    1500,
+  );
+}
+
+async function handleFinalConfirmation(psid: string, text: string, payload?: string): Promise<void> {
+  // Handle SKIP_EMAIL payload coming here (edge case)
+  if (payload === "SKIP_EMAIL") {
+    setSession(psid, { email: undefined, emailConsent: false });
+    await showFinalConfirmation(psid);
+    return;
+  }
+
   const isConfirm =
     payload === "CONFIRM_BOOKING" ||
-    /confirm|yes|oo|sige|tama|okay|ok|correct|push/i.test(text);
+    /^(yes|oo|opo|sige|tama|okay|ok|confirm|push|go|yep|yup|sure)\b/i.test(text.trim());
   const isEdit =
-    payload === "EDIT_BOOKING" || /edit|mali|change|baguhin|ulit|again/i.test(text);
+    payload === "EDIT_BOOKING" || /\b(edit|mali|change|baguhin|ulit|again|change)\b/i.test(text);
 
   if (isConfirm) {
     const s = getSession(psid);
+
+    // Immediately tell user we're processing
     await sendTypingOn(psid);
-    await delay(2000);
+    await sendText(
+      psid,
+      `✅ Booking request received! 🎉\n\n` +
+      `We're now processing your appointment for ${s.service} on ${s.date} at ${s.time}. ` +
+      `Our staff will reach out to confirm shortly 💖\n\n` +
+      `Salamat and see you soon at La Julieta Beauty Parañaque! 🌸`
+    );
     await sendTypingOff(psid);
 
-    try {
-      const result = await createReservation({
-        psid,
-        service: s.service!,
-        date: s.date!,
-        time: s.time!,
-        name: s.name!,
-        mobile: s.mobile!,
-      });
+    const sessionSnapshot = { ...s };
+    resetSession(psid);
 
+    // Show follow-up menu while automation runs in background
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "Is there anything else I can help you with? 😊",
+      INTENT_QUICK_REPLIES,
+      800,
+    );
+
+    // Run AnyPlusPro automation in background (non-blocking)
+    createReservation({
+      psid,
+      service: sessionSnapshot.service!,
+      date: sessionSnapshot.date!,
+      time: sessionSnapshot.time!,
+      name: sessionSnapshot.name!,
+      mobile: sessionSnapshot.mobile!,
+      email: sessionSnapshot.email,
+      emailConsent: sessionSnapshot.emailConsent,
+      concern: sessionSnapshot.concern,
+      channel: sessionSnapshot.channel,
+    }).then(async (result) => {
       if (result.success) {
-        upsertClient({ psid, status: "confirmed", leadStatus: "booking_confirmed", referenceNo: result.referenceNo }).catch(() => {});
-        resetSession(psid);
+        logger.info({ psid, referenceNo: result.referenceNo }, "AnyPlusPro booking completed");
+        // Send reference number as follow-up message
         await sendText(
           psid,
-          `Your booking is CONFIRMED! 🎉💖\n\n` +
-            `Reference No: ${result.referenceNo}\n\n` +
-            `Watch out for a confirmation text from us. If you have any questions, just message me anytime 💕 Salamat and see you soon at La Julieta Beauty! 🌸`,
-        );
-        await delay(1000);
-        await sendWithDelayAndQuickReplies(
-          psid,
-          "Is there anything else I can help you with? 😊",
-          INTENT_QUICK_REPLIES,
-          800,
-        );
+          `✅ Great news! Your appointment has been confirmed 🎉\n\nReference No: ${result.referenceNo}\n\nWatch out for a confirmation text. See you soon! 💕`,
+        ).catch(() => {});
       } else {
-        throw new Error(result.error || "Unknown error");
+        logger.warn({ psid, error: result.error }, "AnyPlusPro booking failed — manual required");
+        await sendText(
+          psid,
+          `Our team has received your booking request 💖 A staff member will reach out within a few hours to confirm your schedule. If urgent, tap "Talk to Agent" below 😊`,
+        ).catch(() => {});
       }
-    } catch (err) {
-      logger.error({ err, psid }, "Booking failed");
-      resetSession(psid);
-      await sendWithDelayAndQuickReplies(
-        psid,
-        "Oops, something went wrong on our end 😅 Please try again in a bit, or you can talk to our staff directly for faster help! 🙏",
-        [
-          { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
-          { title: "🔄 Try Again", payload: "INTENT_BOOK" },
-        ],
-        1500,
-      );
-    }
+    }).catch((err) => {
+      logger.error({ err, psid }, "AnyPlusPro automation error");
+    });
+
   } else if (isEdit) {
-    setSession(psid, { step: "choosing_service", service: undefined, date: undefined, time: undefined, name: undefined, mobile: undefined, retryCount: 0 });
+    setSession(psid, {
+      step: "choosing_service",
+      service: undefined, date: undefined, time: undefined,
+      name: undefined, mobile: undefined, email: undefined,
+      emailConsent: undefined, retryCount: 0,
+    });
     await sendWithDelayAndQuickReplies(
       psid,
       "No worries! Let's fix that 😊 Which service would you like?",
@@ -747,15 +847,6 @@ async function handleConfirmation(psid: string, text: string, payload?: string):
       1000,
     );
   } else {
-    await sendWithDelayAndQuickReplies(
-      psid,
-      "Shall we go ahead and confirm? 😊",
-      [
-        { title: "✅ Confirm", payload: "CONFIRM_BOOKING" },
-        { title: "✏️ Edit", payload: "EDIT_BOOKING" },
-        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
-      ],
-      1000,
-    );
+    await showFinalConfirmation(psid);
   }
 }

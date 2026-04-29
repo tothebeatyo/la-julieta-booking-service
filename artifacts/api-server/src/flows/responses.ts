@@ -682,3 +682,75 @@ export function getPromosForService(service: string): string[] {
   const indices = CATEGORY_TO_PROMO_INDICES[cat] ?? [];
   return indices.map((i) => ACTIVE_PROMOS[i]).filter(Boolean);
 }
+
+// ─── Email collection ─────────────────────────────────────────────────────────
+
+export const EMAIL_COLLECTION_MESSAGE =
+  `May we also get your email address? 😊\n\n` +
+  `We'll use it for appointment updates, promos, and exclusive offers.\n\n` +
+  `By sharing your email, you agree to receive appointment updates and promotional offers from La Julieta Beauty Parañaque. You can opt out anytime.\n\n` +
+  `You may type SKIP if you prefer not to share.`;
+
+// ─── Schedule validation ──────────────────────────────────────────────────────
+
+export const SCHEDULE_CLOSED_MESSAGE =
+  `Sorry, we're closed at that time 😊 Our clinic is open Tuesday to Sunday, 9:00 AM to 6:00 PM only.\n\nWould you like to choose another schedule?`;
+
+// Returns null if schedule is valid, or an error message string if invalid
+export function validateSchedule(dateStr: string, timeStr: string): string | null {
+  // Parse day of week
+  try {
+    const parsed = parseDateString(dateStr);
+    if (parsed) {
+      const dow = parsed.getDay(); // 0=Sun, 1=Mon, 2=Tue…6=Sat
+      if (dow === 1) return SCHEDULE_CLOSED_MESSAGE; // Monday
+    }
+  } catch { /* ignore parse errors */ }
+
+  // Parse time — check 9:00 AM to 6:00 PM
+  const hourMin = parseTime(timeStr);
+  if (hourMin !== null) {
+    const { hours, minutes } = hourMin;
+    const totalMin = hours * 60 + minutes;
+    if (totalMin < 9 * 60 || totalMin >= 18 * 60) return SCHEDULE_CLOSED_MESSAGE;
+  }
+
+  return null; // valid
+}
+
+function parseDateString(str: string): Date | null {
+  // Handles "tomorrow", "April 25", "Saturday", ISO dates
+  const s = str.toLowerCase().trim();
+  if (s === "tomorrow") {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
+  const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  const dayIdx = days.indexOf(s);
+  if (dayIdx !== -1) {
+    const d = new Date();
+    const diff = (dayIdx - d.getDay() + 7) % 7 || 7;
+    d.setDate(d.getDate() + diff);
+    return d;
+  }
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function parseTime(str: string): { hours: number; minutes: number } | null {
+  const m = str.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!m) {
+    // Named times
+    if (/morning|umaga/i.test(str)) return { hours: 10, minutes: 0 };
+    if (/afternoon|tanghali|hapon/i.test(str)) return { hours: 14, minutes: 0 };
+    if (/evening|gabi/i.test(str)) return { hours: 18, minutes: 0 };
+    return null;
+  }
+  let hours = parseInt(m[1]!, 10);
+  const minutes = m[2] ? parseInt(m[2], 10) : 0;
+  const period = m[3]?.toLowerCase();
+  if (period === "pm" && hours < 12) hours += 12;
+  if (period === "am" && hours === 12) hours = 0;
+  return { hours, minutes };
+}
