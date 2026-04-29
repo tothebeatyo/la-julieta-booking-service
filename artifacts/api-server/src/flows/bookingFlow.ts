@@ -71,6 +71,26 @@ async function sendPricingAndPromos(psid: string, service: string): Promise<void
     );
   }
 
+  // Slimming: show promos upfront + sub-option buttons for Lemon Bottle vs Mesolipo
+  const isSlimming = service === "Slimming / Fat Dissolve" || service === "Slimming";
+  if (isSlimming) {
+    for (const promo of matchingPromos) {
+      await sendWithDelay(psid, promo, 1400);
+    }
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "Which slimming treatment would you like? Both are non-surgical, no downtime 💕",
+      [
+        { title: "🍋 Lemon Bottle", payload: "SVC_LEMON_BOTTLE" },
+        { title: "💉 Mesolipo", payload: "SVC_MESOLIPO" },
+        { title: "📅 Book Consultation", payload: "BOOK_NOW" },
+        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+      ],
+      1000,
+    );
+    return;
+  }
+
   const promoButton = matchingPromos.length > 0
     ? [{ title: "🎉 View Promos", payload: "INTENT_PROMOS" }]
     : [];
@@ -387,6 +407,50 @@ async function handleSkinConcern(psid: string, payload: string): Promise<void> {
 // ─── Intent Choice ────────────────────────────────────────────────────────────
 
 async function handleIntentChoice(psid: string, text: string, payload?: string): Promise<void> {
+  // "Yes" / affirmative text when waiting for booking decision — go straight to booking
+  if (session.step === "awaiting_book_decision" && session.service && !payload) {
+    const isYes = /^(yes|oo|opo|sure|sige|ayos|ok|okay|go|push|yep|yup|tara|sali|gusto|i want|book|pls|please|ayaw|ayan|yep|yup|booking)$/i.test(text.trim());
+    if (isYes) {
+      setSession(psid, { step: "entering_date", retryCount: 0 });
+      upsertClient({ psid, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
+      await sendWithDelayAndQuickReplies(
+        psid,
+        `Great! Let's book your ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
+        TALK_TO_STAFF_QR,
+        1000,
+      );
+      return;
+    }
+  }
+
+  // Lemon Bottle sub-selection (after slimming screening)
+  if (payload === "SVC_LEMON_BOTTLE") {
+    setSession(psid, { step: "entering_date", service: "Lemon Bottle Fat Dissolve", retryCount: 0 });
+    upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
+    await sendWithDelay(psid, `🍋 Great choice! Lemon Bottle is fast-acting and works well on double chin, arms, tummy, and love handles.\n\nPromo rate: ₱567/mL 💕`, 1000);
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
+      TALK_TO_STAFF_QR,
+      1000,
+    );
+    return;
+  }
+
+  // Mesolipo sub-selection (after slimming screening)
+  if (payload === "SVC_MESOLIPO") {
+    setSession(psid, { step: "entering_date", service: "Mesolipo", retryCount: 0 });
+    upsertClient({ psid, service: "Mesolipo", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
+    await sendWithDelay(psid, `💉 Great choice! Mesolipo uses a precision cocktail of fat-dissolving agents — perfect for face, arms, tummy, and bra line contouring.\n\nStarting at ₱1,099 per area 💕`, 1000);
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
+      TALK_TO_STAFF_QR,
+      1000,
+    );
+    return;
+  }
+
   // Injectable service with safety screening shortcut
   if (payload === "SCREENING_GLUTA") {
     await startSafetyScreening(psid, "IV Drip");
