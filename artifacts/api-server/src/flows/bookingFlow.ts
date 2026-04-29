@@ -432,14 +432,41 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
 
   // Lemon Bottle sub-selection (after slimming screening)
   if (payload === "SVC_LEMON_BOTTLE") {
-    setSession(psid, { step: "entering_date", service: "Lemon Bottle Fat Dissolve", retryCount: 0 });
-    upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelay(psid, `🍋 Great choice! Lemon Bottle is fast-acting and targets double chin, arms, tummy, and love handles.\n\nPromo rate: ₱567/mL 💕`, 1000);
+    setSession(psid, { step: "awaiting_book_decision", service: "Lemon Bottle Fat Dissolve", retryCount: 0, screeningPassed: true });
+    upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", status: "inquiry" }).catch(() => {});
+
+    // 1. Simple explanation
+    await sendWithDelay(
+      psid,
+      `🍋 What is Lemon Bottle?\n\nIt's a premium fat-dissolving injection made with Riboflavin (B2), Bromelain, and Lecithin. It breaks down fat cells quickly — targeting double chin, arms, tummy, love handles, and thighs.\n\n✅ Fast-acting — visible results in 1–2 sessions\n✅ Minimal swelling\n✅ Almost zero downtime\n✅ Promo rate: ₱567/mL 💕`,
+      1200,
+    );
+
+    // 2. Upsell with Exilis
+    await sendWithDelay(
+      psid,
+      `💡 Want even better results?\n\nPair it with our Exilis Ultra treatment! Exilis uses Radiofrequency + Ultrasound to tighten the skin and melt deeper fat layers — the perfect partner for Lemon Bottle. 🔥`,
+      1800,
+    );
+
+    // 3. Why this combo is the best
+    await sendWithDelay(
+      psid,
+      `✨ Lemon Bottle + Exilis = the ultimate fat-dissolving combo\n\n🍋 Lemon Bottle dissolves fat cells from the inside\n⚡ Exilis tightens skin and reaches deeper layers\n💪 Together = faster, smoother, and longer-lasting results\n🚫 No surgery. No downtime.\n\nYou get a slimmer, firmer body — without going under the knife 💕`,
+      2000,
+    );
+
+    // 4. Book question
     await sendWithDelayAndQuickReplies(
       psid,
-      `Let's get you booked! 🌸 ${randomPick(DATE_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1000,
+      `Would you like me to book you now? 😊`,
+      [
+        { title: "✅ Yes, Book Now!", payload: "BOOK_NOW" },
+        { title: "💉 Try Mesolipo Instead", payload: "SVC_MESOLIPO" },
+        { title: "💆 Other Services", payload: "INTENT_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+      ],
+      1200,
     );
     return;
   }
