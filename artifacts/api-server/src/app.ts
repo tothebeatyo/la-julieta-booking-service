@@ -1,6 +1,5 @@
 import express, { type Express, type Request, type Response } from "express";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import path from "path";
 import { existsSync, mkdirSync } from "fs";
@@ -10,6 +9,7 @@ import webhookRouter from "./routes/webhook";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
+app.set("trust proxy", 1);
 
 app.use(
   pinoHttp({
@@ -35,13 +35,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Webhook and API routes FIRST — highest priority
-const webhookLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use("/webhook", webhookLimiter, webhookRouter);
+app.use("/webhook", webhookRouter);
 app.use("/api", router);
 
 // Serve AnyPlusPro screenshots (logs/screenshots/) at /logs/screenshots/

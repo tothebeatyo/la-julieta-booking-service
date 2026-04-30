@@ -1,0 +1,101 @@
+URGENT: Bot is not replying to new messages.
+Check everything and fix now.
+
+STEP 1 — Check Replit console logs RIGHT NOW
+Look for any of these in the logs:
+- "WEBHOOK RECEIVED" 
+- "Processing event"
+- Any ERROR messages
+- Any crash logs
+
+If NO webhook logs appear when messages come in,
+the webhook URL is disconnected from Facebook.
+
+STEP 2 — Check if server is actually running
+In index.ts, add this health ping every 60 seconds:
+
+setInterval(() => {
+  logger.info({ 
+    uptime: process.uptime(),
+    memory: process.memoryUsage().heapUsed,
+    time: new Date().toISOString()
+  }, "💓 Server heartbeat");
+}, 60000);
+
+STEP 3 — Check the webhook route is mounted correctly
+In artifacts/api-server/src/app.ts,
+verify the webhook route is FIRST before static files:
+
+// This order is CRITICAL:
+app.use("/webhook", webhookRouter);  // FIRST
+app.use("/api", router);             // SECOND
+app.use(express.static(publicDir));  // LAST
+
+If order is wrong, static file handler intercepts
+the webhook before it reaches the router.
+
+STEP 4 — Test webhook is reachable
+Run in Replit shell:
+curl -X GET "https://ljbcpquechat.replit.app/webhook?hub.mode=subscribe&hub.verify_token=${VERIFY_TOKEN}&hub.challenge=test123"
+
+Expected response: test123
+If you get HTML or 404, webhook route is broken.
+
+STEP 5 — Check VERIFY_TOKEN matches Facebook
+In Replit Secrets, check VERIFY_TOKEN value.
+In Facebook Developer Console → Webhooks,
+the verify token must EXACTLY match.
+
+STEP 6 — Re-verify webhook in Facebook Console
+Go to developers.facebook.com → Your App → 
+Messenger → Webhooks
+Click "Edit" next to your webhook URL
+Click "Verify and Save" again
+
+STEP 7 — Add emergency catch-all to processEvent
+At the very start of processEvent, before anything:
+
+async function processEvent(
+  event: Record<string, unknown>,
+  channel: "messenger" | "instagram" = "messenger"
+): Promise<void> {
+  
+  logger.info({ 
+    eventKeys: Object.keys(event),
+    channel,
+    hasSender: !!(event["sender"] || event["from"]),
+  }, "🔍 processEvent called");
+
+  const sender = (event["sender"] ?? event["from"]) as { id: string } | undefined;
+  
+  if (!sender?.id) {
+    logger.warn({ event: JSON.stringify(event).slice(0, 200) }, "No sender ID");
+    return;
+  }
+
+  const psid = sender.id;
+  logger.info({ psid, channel }, "✅ Sender found");
+
+  // ... rest of code
+
+STEP 8 — Add logging to bookingFlow entry
+At the very start of handleBookingFlow:
+
+export async function handleBookingFlow(
+  psid: string,
+  text: string,
+  payload?: string
+): Promise<void> {
+  logger.info({ psid, text: text.slice(0, 100), payload }, "🔄 handleBookingFlow called");
+  
+  try {
+    // ... existing code
+  } catch (err) {
+    logger.error({ err, psid }, "❌ handleBookingFlow CRASHED");
+    throw err;
+  }
+}
+
+STEP 9 — Restart server completely
+Stop and restart the Replit server.
+Watch logs carefully after restart.
