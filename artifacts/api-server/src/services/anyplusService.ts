@@ -4,6 +4,13 @@ import fs from "fs";
 import { logger } from "../lib/logger";
 import { upsertClient } from "./clientService";
 import { sendTelegramAlert } from "./telegramService";
+import { pool } from "@workspace/db";
+
+// ─── Module-level constants (used by autoBook) ────────────────────────────────
+const ANYPLUSPRO_URL = process.env["ANYPLUSPRO_LOGIN_URL"] ?? "https://www.lajulieta.anypluspro.com";
+const ANYPLUSPRO_USERNAME = process.env["ANYPLUSPRO_USERNAME"] ?? "";
+const ANYPLUSPRO_PASSWORD = process.env["ANYPLUSPRO_PASSWORD"] ?? "";
+const SCREENSHOT_DIR = "logs/screenshots";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +33,15 @@ export interface BookingResult {
   referenceNo?: string;
   screenshotPath?: string;
   error?: string;
+}
+
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+  phone?: string;
 }
 
 // Service keyword map — edit to match AnyPlusPro's exact service names
@@ -453,4 +469,184 @@ function formatTimeForInput(timeStr: string): string {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
   }
   return timeStr;
+}
+
+// ─── Helper: "10:00 AM" → "10:00", "2:30 PM" → "14:30" ──────────────────────
+function convertTo24Hr(timeStr: string): string {
+  const parts = timeStr.trim().split(" ");
+  const modifier = parts[1]?.toUpperCase();
+  const [h, min] = (parts[0] ?? "0:00").split(":").map(Number);
+  let hours = h ?? 0;
+  const minutes = min ?? 0;
+  if (modifier === "PM" && hours !== 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+// ─── autoBook ─────────────────────────────────────────────────────────────────
+// Simpler interface used by the test route and admin-triggered retries.
+// Uses BookingDetails (psid, name, service, date, time, phone?) instead of
+// the full BookingPayload used by createReservation.
+
+export async function autoBook(details: BookingDetails): Promise<BookingResult> {
+  let browser: Browser | null = null;
+  try {
+    logger.info({ details }, "autoBook: starting AnyPlusPro automation");
+
+    browser = await chromium.launch({
+      executablePath: fs.existsSync("/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome")
+        ? "/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome"
+        : undefined,
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+    });
+
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    page.setDefaultTimeout(30000);
+
+    const ssDir = path.resolve(SCREENSHOT_DIR);
+    if (!fs.existsSync(ssDir)) fs.mkdirSync(ssDir, { recursive: true });
+    const ss = async (label: string) => {
+      const p = path.join(ssDir, `${label}_${Date.now()}.png`);
+      await page.screenshot({ path: p, fullPage: false });
+      return `${SCREENSHOT_DIR}/${path.basename(p)}`;
+    };
+
+    // ── Step 1: Login ─────────────────────────────────────────────────────────
+    await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle", timeout: 30000 });
+    await page.fill('input[type="email"], input[name="email"], input[name="username"]', ANYPLUSPRO_USERNAME, { timeout: 10000 });
+    await page.fill('input[type="password"]', ANYPLUSPRO_PASSWORD, { timeout: 5000 });
+    await page.click('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")', { timeout: 5000 });
+    await page.waitForLoadState("networkidle", { timeout: 20000 });
+    await ss("01-after-login");
+
+    if (page.url().includes("login")) {
+      throw new Error("Login failed — check ANYPLUSPRO_USERNAME and ANYPLUSPRO_PASSWORD");
+    }
+    logger.info("autoBook: login successful");
+
+    // ── Step 2: Navigate to Appointments ──────────────────────────────────────
+    const apptLink = page.locator('a:has-text("Appointment"), a[href*="appointment"]').first();
+    if (await apptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await apptLink.click();
+      await page.waitForLoadState("networkidle", { timeout: 10000 });
+    }
+    await ss("02-appointments-page");
+    logger.info("autoBook: on appointments page");
+
+    // ── Step 3: Open New Appointment modal ────────────────────────────────────
+    await page.click(
+      'button:has-text("Appointment"), button:has-text("New Appointment"), button:has-text("+ Appointment")',
+      { timeout: 10000 },
+    );
+    await page.waitForTimeout(1500);
+    await ss("03-new-appointment-modal");
+    logger.info("autoBook: new appointment modal opened");
+
+    // ── Step 4: Click Register New ────────────────────────────────────────────
+    await page.click('button:has-text("Register New"), text=Register New', { timeout: 10000 });
+    await page.waitForTimeout(1500);
+    await ss("04-register-patient-form");
+    logger.info("autoBook: register patient form visible");
+
+    // ── Step 5: Fill patient registration ────────────────────────────────────
+    const nameParts = details.name.trim().split(/\s+/);
+    const firstName = nameParts[0] ?? details.name;
+    const lastName = nameParts.slice(1).join(" ") || "—";
+
+    const firstInput = page.locator('input[placeholder="First name"], input[placeholder*="first" i]').first();
+    if (await firstInput.isVisible({ timeout: 5000 }).catch(() => false)) await firstInput.fill(firstName);
+
+    const lastInput = page.locator('input[placeholder="Last name"], input[placeholder*="last" i]').first();
+    if (await lastInput.isVisible({ timeout: 3000 }).catch(() => false)) await lastInput.fill(lastName);
+
+    if (details.phone) {
+      const phoneInput = page.locator('input[placeholder*="9XX"], input[placeholder*="mobile" i], input[type="tel"]').first();
+      if (await phoneInput.isVisible({ timeout: 3000 }).catch(() => false)) await phoneInput.fill(details.phone);
+    }
+
+    // Lead source — try to select Facebook / Instagram
+    await page.selectOption('select', { label: /facebook|social media|instagram|online/i })
+      .catch(() =>
+        page.evaluate(() => {
+          document.querySelectorAll("select").forEach((s) => { if (s.options.length > 1) s.selectedIndex = 1; });
+        }).catch(() => {})
+      );
+
+    // Notes
+    const notesInput = page.locator('textarea[placeholder*="notes" i], textarea[placeholder*="Notes"]').first();
+    if (await notesInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await notesInput.fill(
+        `Booked via Facebook Messenger chatbot. Service: ${details.service}. Date: ${details.date} at ${details.time}.`
+      );
+    }
+    await ss("05-form-filled");
+
+    // ── Step 6: Submit patient registration ───────────────────────────────────
+    await page.click('button:has-text("Register Patient"), button:has-text("Register"), button[type="submit"]', { timeout: 10000 });
+    await page.waitForLoadState("networkidle", { timeout: 15000 });
+    await ss("06-patient-registered");
+    logger.info("autoBook: patient registered");
+
+    // ── Step 7: Search and select patient in appointment form ─────────────────
+    const searchInput = page.locator('input[placeholder*="Search by name" i], input[placeholder*="search" i]').first();
+    if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await searchInput.fill(details.name);
+      await page.waitForTimeout(1500);
+      await page.click('[class*="patient"], [class*="result"]:first-child, [class*="suggestion"]:first-child', { timeout: 5000 })
+        .catch(async () => { await page.keyboard.press("Enter"); });
+    }
+    await ss("07-patient-selected");
+
+    // ── Step 8: Select service ────────────────────────────────────────────────
+    const svcInput = page.locator('input[placeholder*="Search service" i], input[placeholder*="service" i]').first();
+    if (await svcInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await svcInput.fill(details.service);
+      await page.waitForTimeout(1500);
+      await page.click('[class*="service"]:first-child, [class*="result"]:first-child', { timeout: 5000 })
+        .catch(async () => { await page.keyboard.press("Enter"); });
+    }
+    await ss("08-service-selected");
+
+    // ── Step 9: Set date and time ─────────────────────────────────────────────
+    const dateInput = page.locator('input[type="date"]').first();
+    if (await dateInput.isVisible({ timeout: 5000 }).catch(() => false)) await dateInput.fill(details.date);
+
+    const timeInput = page.locator('input[type="time"]').first();
+    if (await timeInput.isVisible({ timeout: 3000 }).catch(() => false)) await timeInput.fill(convertTo24Hr(details.time));
+
+    await ss("09-datetime-set");
+
+    // ── Step 10: Submit booking ───────────────────────────────────────────────
+    await page.click(
+      'button:has-text("Book"), button:has-text("Confirm"), button:has-text("Save"), button:has-text("Create Appointment")',
+      { timeout: 10000 },
+    );
+    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    const finalShot = await ss("10-booking-submitted");
+    logger.info("autoBook: booking submitted");
+
+    // ── Step 11: Detect success ───────────────────────────────────────────────
+    const pageContent = await page.content();
+    const isSuccess = /success|confirmed|booked|appointment created|booking created/i.test(pageContent);
+
+    await pool.query(
+      `UPDATE clients SET anypluspro_status = $1, lead_status = 'booking_confirmed', updated_at = NOW() WHERE psid = $2`,
+      [isSuccess ? "auto_booked" : "manual_booking_required", details.psid],
+    ).catch(() => {});
+
+    logger.info({ isSuccess }, "autoBook: complete");
+    return { success: isSuccess, screenshotPath: finalShot };
+
+  } catch (err) {
+    logger.error({ err }, "autoBook: failed");
+    await pool.query(
+      `UPDATE clients SET anypluspro_status = 'manual_booking_required', updated_at = NOW() WHERE psid = $1`,
+      [details.psid],
+    ).catch(() => {});
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
 }

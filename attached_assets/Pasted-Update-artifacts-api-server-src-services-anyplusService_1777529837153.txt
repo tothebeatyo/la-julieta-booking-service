@@ -1,0 +1,195 @@
+Update artifacts/api-server/src/services/anyplusService.ts
+with the complete booking form automation based on the 
+actual AnyPlusPro form layout we can now see.
+
+Replace the autoBook function with this complete version:
+
+export async function autoBook(details: BookingDetails): Promise<BookingResult> {
+  let browser: Browser | null = null;
+  try {
+    logger.info({ details }, "Starting AnyPlusPro auto-booking");
+
+    browser = await chromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+
+    const page = await browser.newPage();
+    page.setDefaultTimeout(30000);
+
+    // ─── STEP 1: Login ───────────────────────────────────────
+    await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle" });
+    await page.fill('input[type="email"]', USERNAME);
+    await page.fill('input[type="password"]', PASSWORD);
+    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.waitForLoadState("networkidle");
+    await takeScreenshot(page, "01-after-login");
+
+    if (page.url().includes("login")) {
+      throw new Error("Login failed — check ANYPLUSPRO_USERNAME and ANYPLUSPRO_PASSWORD");
+    }
+    logger.info("Login successful");
+
+    // ─── STEP 2: Go to Appointments ──────────────────────────
+    await page.click('a:has-text("Appointments"), [href*="appointment"]');
+    await page.waitForLoadState("networkidle");
+    await takeScreenshot(page, "02-appointments-page");
+    logger.info("On appointments page");
+
+    // ─── STEP 3: Open New Appointment modal ──────────────────
+    await page.click('button:has-text("Appointment"), button:has-text("New Appointment"), button:has-text("+ Appointment")');
+    await page.waitForSelector('text=New Appointment', { state: "visible" });
+    await takeScreenshot(page, "03-new-appointment-modal");
+    logger.info("New appointment modal opened");
+
+    // ─── STEP 4: Click Register New to add new patient ───────
+    await page.click('button:has-text("Register New"), text=Register New');
+    await page.waitForSelector('text=Register New Patient', { state: "visible" });
+    await takeScreenshot(page, "04-register-patient-form");
+    logger.info("Register patient form opened");
+
+    // ─── STEP 5: Fill patient registration form ───────────────
+    // Split full name into first and last
+    const nameParts = details.name.trim().split(" ");
+    const firstName = nameParts[0] ?? details.name;
+    const lastName = nameParts.slice(1).join(" ") || "—";
+
+    await page.fill('input[placeholder="First name"]', firstName);
+    await page.fill('input[placeholder="Last name"]', lastName);
+    await takeScreenshot(page, "05-name-filled");
+
+    // Fill mobile if available
+    if (details.phone) {
+      await page.fill('input[placeholder*="9XX"], input[placeholder*="mobile"], input[type="tel"]', details.phone);
+    }
+
+    // Select Lead Source (required field) — select Facebook/Social Media
+    await page.click('select:near(:text("Lead Source")), [placeholder="How did they hear about us?"]');
+    // Try to select Facebook option, fallback to first available option
+    const leadSourceSelect = page.locator('select').filter({ hasText: /lead source/i }).or(
+      page.locator('select').nth(0)
+    );
+    await page.selectOption(
+      'select:near(:text("Lead Source"))',
+      { label: /facebook|social media|online|instagram/i }
+    ).catch(async () => {
+      // If no match, just select the first real option
+      await page.evaluate(() => {
+        const selects = document.querySelectorAll('select');
+        selects.forEach(sel => {
+          if (sel.options.length > 1) sel.selectedIndex = 1;
+        });
+      });
+    });
+
+    // Add notes with booking context
+    await page.fill(
+      'textarea[placeholder*="notes"], textarea[placeholder*="Notes"]',
+      `Booked via Facebook Messenger chatbot. Service: ${details.service}. Date: ${details.date} at ${details.time}.`
+    );
+
+    await takeScreenshot(page, "06-form-filled");
+
+    // ─── STEP 6: Submit patient registration ─────────────────
+    await page.click('button:has-text("Register Patient")');
+    await page.waitForLoadState("networkidle");
+    await takeScreenshot(page, "07-patient-registered");
+    logger.info("Patient registered");
+
+    // ─── STEP 7: Back in New Appointment — search for patient ─
+    await page.waitForSelector('input[placeholder*="Search by name"]', { state: "visible" });
+    await page.fill('input[placeholder*="Search by name"]', details.name);
+    await page.waitForTimeout(1500); // wait for search results
+    await takeScreenshot(page, "08-patient-search");
+
+    // Click first result
+    await page.click('.patient-option, [class*="result"]:first-child, [class*="suggestion"]:first-child').catch(async () => {
+      await page.keyboard.press("Enter");
+    });
+    await takeScreenshot(page, "09-patient-selected");
+    logger.info("Patient selected");
+
+    // ─── STEP 8: Search and select service ───────────────────
+    await page.fill('input[placeholder*="Search services"]', details.service);
+    await page.waitForTimeout(1500);
+    await takeScreenshot(page, "10-service-search");
+    await page.click('[class*="service"]:first-child, [class*="result"]:first-child').catch(async () => {
+      await page.keyboard.press("Enter");
+    });
+    await takeScreenshot(page, "11-service-selected");
+    logger.info("Service selected");
+
+    // ─── STEP 9: Set date and time ───────────────────────────
+    // Date format: YYYY-MM-DD
+    await page.fill('input[type="date"]', details.date);
+    // Time format: HH:MM (24hr)
+    const time24 = convertTo24Hr(details.time);
+    await page.fill('input[type="time"]', time24);
+    await takeScreenshot(page, "12-datetime-set");
+    logger.info({ date: details.date, time: time24 }, "Date and time set");
+
+    // ─── STEP 10: Submit the appointment ─────────────────────
+    await page.click('button:has-text("Book"), button:has-text("Confirm"), button:has-text("Save"), button:has-text("Create Appointment")');
+    await page.waitForLoadState("networkidle");
+    await takeScreenshot(page, "13-booking-submitted");
+    logger.info("Booking submitted");
+
+    // ─── STEP 11: Verify success ─────────────────────────────
+    const successIndicator = await page.locator(
+      'text=success, text=confirmed, text=booked, [class*="success"], [class*="confirm"]'
+    ).first().isVisible().catch(() => false);
+
+    const finalScreenshot = await takeScreenshot(page, "14-final-result");
+
+    // Update DB
+    await pool.query(
+      `UPDATE clients SET 
+        anypluspro_status = $1, 
+        lead_status = 'booking_confirmed',
+        updated_at = NOW() 
+       WHERE psid = $2`,
+      [successIndicator ? "auto_booked" : "manual_booking_required", details.psid]
+    );
+
+    logger.info({ successIndicator }, "Booking flow complete");
+    return { 
+      success: !!successIndicator, 
+      screenshotPath: finalScreenshot 
+    };
+
+  } catch (err) {
+    logger.error({ err }, "AnyPlusPro auto-booking failed");
+
+    // Update DB to manual required
+    await pool.query(
+      `UPDATE clients SET anypluspro_status = 'manual_booking_required', updated_at = NOW() WHERE psid = $1`,
+      [details.psid]
+    ).catch(() => {});
+
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err)
+    };
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+// Helper: convert "10:00 AM" → "10:00", "2:30 PM" → "14:30"
+function convertTo24Hr(timeStr: string): string {
+  const [time, modifier] = timeStr.split(" ");
+  let [hours, minutes] = time.split(":").map(Number);
+  if (modifier === "PM" && hours !== 12) hours += 12;
+  if (modifier === "AM" && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+Also update the BookingDetails interface to include optional phone:
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;     // format: YYYY-MM-DD
+  time: string;     // format: "10:00 AM"
+  phone?: string;   // optional: "+63 9XX XXX XXXX"
+}

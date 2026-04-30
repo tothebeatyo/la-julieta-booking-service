@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
-import { retryAutoBooking, createReservation } from "../services/anyplusService";
+import { retryAutoBooking, createReservation, autoBook } from "../services/anyplusService";
 
 const router: IRouter = Router();
 
@@ -297,14 +297,13 @@ router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request
 router.post("/test-anyplus", authMiddleware as any, async (_req: Request, res: Response) => {
   try {
     logger.info("Testing AnyPlusPro login via createReservation...");
-    const result = await createReservation({
+    const result = await autoBook({
       psid: "test-psid",
       name: "Test Client",
       service: "Facial Treatment",
       date: "2026-05-01",
       time: "10:00 AM",
-      mobile: "09000000000",
-      channel: "messenger",
+      phone: "09000000000",
     });
     res.json({
       result,
