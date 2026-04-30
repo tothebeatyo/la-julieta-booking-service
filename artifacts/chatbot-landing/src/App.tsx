@@ -212,29 +212,44 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
 }
 
 // ─── Message drawer ───────────────────────────────────────────────────────────
-function formatTimestamp(ts: string) {
-  return new Date(ts).toLocaleString("en-PH", {
-    timeZone: "Asia/Manila",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+function formatTimestamp(ts: string | null | undefined): string {
+  if (!ts) return "Unknown time";
+  try {
+    return new Date(ts).toLocaleString("en-PH", {
+      timeZone: "Asia/Manila",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "Unknown time";
+  }
 }
 
-function getManilaDateKey(ts: string) {
-  return new Date(ts).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+function getManilaDateKey(ts: string | null | undefined): string {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+  } catch {
+    return "";
+  }
 }
 
-function formatDividerDate(ts: string) {
-  return new Date(ts).toLocaleDateString("en-PH", {
-    timeZone: "Asia/Manila",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+function formatDividerDate(ts: string | null | undefined): string {
+  if (!ts) return "";
+  try {
+    return new Date(ts).toLocaleDateString("en-PH", {
+      timeZone: "Asia/Manila",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 function MessageDrawer({ client, token, onClose }: { client: Client; token: string; onClose: () => void }) {

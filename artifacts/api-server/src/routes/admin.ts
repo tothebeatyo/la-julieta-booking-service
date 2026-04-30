@@ -137,7 +137,7 @@ router.get("/clients/:psid/messages", authMiddleware as unknown as (req: Request
   try {
     const { psid } = req.params;
     const result = await pool.query(
-      "SELECT * FROM messages WHERE psid = $1 ORDER BY created_at ASC",
+      "SELECT id, psid, direction, content, created_at FROM messages WHERE psid = $1 ORDER BY created_at ASC",
       [psid]
     );
     res.json({ messages: result.rows });
