@@ -176,7 +176,7 @@ router.get("/stats", authMiddleware as unknown as (req: Request, res: Response) 
 // POST /api/admin/clients/:psid/retry-booking
 router.post("/clients/:psid/retry-booking", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
   try {
-    const { psid } = req.params;
+    const psid = req.params["psid"] as string;
     const result = await retryAutoBooking(psid);
     res.json(result);
   } catch (err) {
