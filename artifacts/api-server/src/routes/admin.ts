@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
-import { retryAutoBooking } from "../services/anyplusService";
+import { retryAutoBooking, createReservation } from "../services/anyplusService";
 
 const router: IRouter = Router();
 
@@ -289,6 +289,30 @@ router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request
   } catch (err) {
     logger.error({ err }, "Error setting up persistent menu");
     res.status(500).json({ error: "Failed to call Meta API" });
+  }
+});
+
+// POST /api/admin/test-anyplus
+// Triggers a test login to AnyPlusPro and saves screenshots
+router.post("/test-anyplus", authMiddleware as any, async (_req: Request, res: Response) => {
+  try {
+    logger.info("Testing AnyPlusPro login via createReservation...");
+    const result = await createReservation({
+      psid: "test-psid",
+      name: "Test Client",
+      service: "Facial Treatment",
+      date: "2026-05-01",
+      time: "10:00 AM",
+      mobile: "09000000000",
+    });
+    res.json({
+      result,
+      screenshotsDir: "logs/screenshots/",
+      message: "Check logs/screenshots/ folder in Replit for step-by-step screenshots",
+    });
+  } catch (err) {
+    logger.error({ err }, "test-anyplus route error");
+    res.status(500).json({ error: String(err) });
   }
 });
 
