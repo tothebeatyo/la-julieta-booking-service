@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger";
 import { logMessage } from "./clientService";
+import { broadcast } from "../lib/websocket";
 
 const PAGE_ACCESS_TOKEN = process.env["PAGE_ACCESS_TOKEN"];
 const GRAPH_API = "https://graph.facebook.com/v22.0/me/messages";
@@ -131,6 +132,10 @@ export async function sendText(recipientId: string, text: string): Promise<void>
   logMessage(recipientId, "outbound", text).catch((err) =>
     logger.error({ err, psid: recipientId }, "Failed to log outbound message"),
   );
+  broadcast({
+    type: "new_message",
+    data: { psid: recipientId, direction: "outbound", content: text, created_at: new Date().toISOString() },
+  });
 }
 
 export async function sendTextWithQuickReplies(
@@ -150,13 +155,17 @@ export async function sendTextWithQuickReplies(
       })),
     },
   }, recipientId);
-  // Log the bot's reply (with quick reply hints) for the admin dashboard
   const qrHint = quickReplies.length > 0
     ? `\n[Quick replies: ${quickReplies.map((qr) => qr.title).join(" · ")}]`
     : "";
-  logMessage(recipientId, "outbound", text + qrHint).catch((err) =>
+  const fullContent = text + qrHint;
+  logMessage(recipientId, "outbound", fullContent).catch((err) =>
     logger.error({ err, psid: recipientId }, "Failed to log outbound message"),
   );
+  broadcast({
+    type: "new_message",
+    data: { psid: recipientId, direction: "outbound", content: fullContent, created_at: new Date().toISOString() },
+  });
 }
 
 export async function sendWithDelay(

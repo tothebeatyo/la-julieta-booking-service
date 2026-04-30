@@ -22,6 +22,7 @@ import {
   randomPick,
 } from "../flows/responses";
 import { upsertClient, logMessage } from "../services/clientService";
+import { broadcast } from "../lib/websocket";
 
 const router: IRouter = Router();
 
@@ -156,6 +157,15 @@ async function processEvent(
     logMessage(psid, "inbound", channelTag + inboundContent).catch((err) =>
       logger.error({ err, psid }, "Failed to log message"),
     );
+
+    broadcast({
+      type: "new_message",
+      data: { psid, direction: "inbound", content: inboundContent, channel, created_at: new Date().toISOString() },
+    });
+    broadcast({
+      type: "client_updated",
+      data: { psid, lastMessage: inboundContent, channel, updated_at: new Date().toISOString() },
+    });
 
     upsertClient({
       psid,

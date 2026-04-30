@@ -1,0 +1,199 @@
+In artifacts/api-server/src/flows/bookingFlow.ts,
+the multi-line booking details parser is broken.
+It's not correctly reading the client's response 
+and falling back to asking questions one by one.
+
+Fix the parser completely:
+
+STEP 1 — Find the step "collecting_booking_details"
+handler and replace the entire parsing logic with this:
+
+if (session.step === "collecting_booking_details") {
+  const lines = text
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
+
+  // Parse each line regardless of emoji or label
+  let clientType: string | null = null;
+  let name: string | null = null;
+  let phone: string | null = null;
+  let date: string | null = null;
+  let time: string | null = null;
+
+  for (const line of lines) {
+    // Remove emojis and labels like "Name:", "📱", etc.
+    const clean = line
+      .replace(/[\u{1F300}-\u{1FFFF}]/gu, "")
+      .replace(/^(old or new client|client type|type|old\/new|new|old|name|mobile|mobile number|phone|date|preferred date|time|preferred time)\s*[:\-]?\s*/i, "")
+      .trim();
+
+    // Detect client type
+    if (/^(new|old)$/i.test(clean) || 
+        /^(new|old)\s*client$/i.test(clean) ||
+        line.toLowerCase().includes("new client") ||
+        line.toLowerCase().includes("old client")) {
+      clientType = /old/i.test(line) ? "Old" : "New";
+      continue;
+    }
+
+    // Detect phone number (starts with 09, +63, or has 11 digits)
+    if (/^(\+63|0)\d{9,10}$/.test(clean.replace(/\s/g, "")) ||
+        /^\d{11}$/.test(clean.replace(/\s/g, ""))) {
+      phone = clean;
+      continue;
+    }
+
+    // Detect time (contains AM/PM or common time words)
+    if (/\d{1,2}(:\d{2})?\s*(am|pm)|morning|afternoon|evening|noon/i.test(clean)) {
+      time = clean;
+      continue;
+    }
+
+    // Detect date (contains month names, tomorrow, numbers like May 2)
+    if (/tomorrow|bukas|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[-\/]\d{1,2}/i.test(clean)) {
+      date = clean;
+      continue;
+    }
+
+    // Whatever is left and looks like a name (2+ words or single proper name)
+    if (!name && clean.length > 1 && !/^\d+$/.test(clean)) {
+      name = clean;
+      continue;
+    }
+  }
+
+  // Use service from session (already detected earlier)
+  const service = session.service ?? "your treatment";
+
+  // Check what's missing
+  const missing: string[] = [];
+  if (!clientType) missing.push("Old or New Client");
+  if (!name) missing.push("full name");
+  if (!phone) missing.push("mobile number");
+  if (!date) missing.push("preferred date");
+  if (!time) missing.push("preferred time");
+
+  if (missing.length > 0) {
+    // Only ask for what's missing
+    await sendWithDelay(
+      psid,
+      `Almost there! 😊 Could you also share your ${missing.join(", ")}?`,
+      800
+    );
+    // Save what we have so far
+    setSession(psid, { 
+      step: "collecting_booking_details",
+      name: name ?? session.name,
+      phone: phone ?? session.phone,
+      date: date ?? session.date,
+      time: time ?? session.time,
+      clientType: clientType ?? session.clientType,
+    });
+    return;
+  }
+
+  // All details collected — show confirmation
+  setSession(psid, { 
+    step: "confirming_booking",
+    name,
+    phone,
+    date,
+    time,
+    clientType,
+    service,
+  });
+
+  await sendWithDelayAndQuickReplies(
+    psid,
+    `Perfect! Here's your booking summary 📋
+
+🔘 ${clientType} Client
+👤 ${name}
+📱 ${phone}
+💆 ${service}
+📅 ${date}
+🕐 ${time}
+
+Is everything correct?`,
+    [
+      { title: "✅ Confirm Booking", payload: "CONFIRM_BOOKING" },
+      { title: "✏️ Edit Details", payload: "EDIT_BOOKING" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    800
+  );
+  return;
+}
+
+STEP 2 — Also fix the session to carry over 
+partial details between messages.
+
+When client sends partial info across multiple messages,
+merge new data with existing session data:
+
+// At the start of collecting_booking_details handler:
+// Pre-fill from session if already partially collected
+if (!name) name = session.name ?? null;
+if (!phone) name = session.phone ?? null;  
+if (!date) date = session.date ?? null;
+if (!time) time = session.time ?? null;
+if (!clientType) clientType = session.clientType ?? null;
+
+STEP 3 — Handle EDIT_BOOKING payload
+Add handler for when client wants to edit:
+
+if (payload === "EDIT_BOOKING") {
+  setSession(psid, { step: "collecting_booking_details" });
+  await sendWithDelay(
+    psid,
+    `No problem! 😊 Please send your updated details:
+
+⚪ Old or New Client:
+👤 Name:
+📱 Mobile Number:
+📅 Preferred Date:
+🕐 Preferred Time:`,
+    800
+  );
+  return;
+}
+
+STEP 4 — Handle CONFIRM_BOOKING payload
+When client confirms, trigger autoBook with all details:
+
+if (payload === "CONFIRM_BOOKING") {
+  await sendWithDelay(
+    psid,
+    "⏳ Please wait, we're booking your appointment now...",
+    500
+  );
+
+  const { autoBook } = await import("../services/anyplusService");
+  const result = await autoBook({
+    psid,
+    name: session.name ?? "Client",
+    service: session.service ?? "",
+    date: session.date ?? "",
+    time: session.time ?? "",
+    phone: session.phone,
+    clientType: session.clientType,
+  });
+
+  if (result.success) {
+    await sendWithDelay(
+      psid,
+      `🎉 You're all set! Your ${session.service} is booked for ${session.date} at ${session.time}. See you at La Julieta Beauty Center! 💕`,
+      800
+    );
+  } else {
+    await sendWithDelay(
+      psid,
+      "💕 Thank you! Our team will confirm your appointment shortly. You'll receive a message within 1 hour! 😊",
+      800
+    );
+  }
+
+  setSession(psid, { step: "idle" });
+  return;
+}
