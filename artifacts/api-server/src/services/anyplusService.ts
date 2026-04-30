@@ -655,6 +655,14 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
       `UPDATE clients SET anypluspro_status = 'manual_booking_required', updated_at = NOW() WHERE psid = $1`,
       [details.psid],
     ).catch(() => {});
+    await notifyBooking({
+      name: details.name,
+      service: details.service,
+      date: details.date,
+      time: details.time,
+      status: "failed",
+      psid: details.psid,
+    }).catch(() => {});
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   } finally {
     if (browser) await browser.close().catch(() => {});
