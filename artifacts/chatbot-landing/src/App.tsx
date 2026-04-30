@@ -469,6 +469,14 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [newMessagePsids, setNewMessagePsids] = useState<Set<string>>(new Set());
 
+  // ── Chat panel state ──────────────────────────────────────────────────────
+  const [showChatPanel, setShowChatPanel] = useState(false);
+  const [selectedPsid, setSelectedPsid] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ id: number; psid: string; direction: string; content: string; created_at: string }[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const webhookUrl = `${WEBHOOK_BASE}${WEBHOOK_PATH}`;
 
   const buildQuery = (f: FilterMode) => {
@@ -566,6 +574,36 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     }
   };
 
+  const getToken = () =>
+    localStorage.getItem("admin_token") ??
+    localStorage.getItem("token") ??
+    sessionStorage.getItem("admin_token") ??
+    sessionStorage.getItem("token") ??
+    token;
+
+  const fetchMessages = async (psid: string) => {
+    setLoadingMessages(true);
+    try {
+      console.log("[Chat] Fetching messages for PSID:", psid, "token exists:", !!getToken());
+      const res = await fetch(`/api/admin/clients/${psid}/messages`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      console.log("[Chat] Response status:", res.status);
+      const data = await res.json() as { messages?: typeof chatMessages; client?: Client };
+      console.log("[Chat] Messages received:", data.messages?.length ?? 0);
+      setChatMessages(data.messages ?? []);
+      if (data.client) setSelectedClient(data.client);
+    } catch (err) {
+      console.error("[Chat] fetchMessages error:", err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
   const handleLogout = async () => {
     await fetch("/api/admin/logout", { method: "POST", headers: authHeaders(token) });
     localStorage.removeItem("admin_token");
@@ -600,7 +638,6 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
 
   return (
     <div className="min-h-screen bg-background">
-      {selectedClient && <MessageDrawer client={selectedClient} token={token} onClose={() => setSelectedClient(null)} />}
 
       <header className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
@@ -767,7 +804,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                         <div className="flex gap-1.5 flex-wrap">
                           <button onClick={() => {
                             console.log("[Chat] button clicked for:", c.psid, "name:", c.name);
+                            setSelectedPsid(c.psid);
                             setSelectedClient(c);
+                            setShowChatPanel(true);
+                            void fetchMessages(c.psid);
                           }}
                             className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-secondary transition-colors">
                             Chat
@@ -825,6 +865,88 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
           <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
         </p>
       </main>
+
+      {/* ── Chat modal ── */}
+      {showChatPanel && selectedPsid && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ backgroundColor: "white", borderRadius: "16px", width: "90%", maxWidth: "540px", height: "620px", display: "flex", flexDirection: "column", boxShadow: "0 25px 50px rgba(0,0,0,0.3)" }}>
+
+            {/* Header */}
+            <div style={{ padding: "16px", borderBottom: "1px solid #e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: "16px" }}>{selectedClient?.name ?? "Client"}</div>
+                <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "999px", backgroundColor: selectedClient?.channel === "instagram" ? "#f3e8ff" : "#dbeafe", color: selectedClient?.channel === "instagram" ? "#7c3aed" : "#1d4ed8" }}>
+                  {selectedClient?.channel === "instagram" ? "📸 Instagram" : "💙 Facebook"}
+                </span>
+              </div>
+              <button onClick={() => { setShowChatPanel(false); setChatMessages([]); setSelectedPsid(null); setSelectedClient(null); }}
+                style={{ background: "none", border: "none", fontSize: "20px", cursor: "pointer", color: "#6b7280" }}>✕</button>
+            </div>
+
+            {/* Messages */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "8px" }}>
+              {loadingMessages && <div style={{ textAlign: "center", color: "#9ca3af", padding: "32px" }}>Loading messages…</div>}
+              {!loadingMessages && chatMessages.length === 0 && <div style={{ textAlign: "center", color: "#9ca3af", padding: "32px" }}>No messages found</div>}
+              {chatMessages.map((msg, index) => {
+                const isOutbound = msg.direction === "outbound";
+                const fmtDate = (ts: string) => new Date(ts).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "long", day: "numeric", year: "numeric" });
+                const fmtTime = (ts: string) => new Date(ts).toLocaleString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true });
+                const showDivider = index === 0 || (msg.created_at && chatMessages[index - 1]?.created_at && fmtDate(msg.created_at) !== fmtDate(chatMessages[index - 1].created_at));
+                return (
+                  <div key={msg.id ?? index}>
+                    {showDivider && msg.created_at && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "12px 0" }}>
+                        <div style={{ flex: 1, height: "1px", backgroundColor: "#e5e7eb" }} />
+                        <span style={{ fontSize: "11px", color: "#9ca3af" }}>{fmtDate(msg.created_at)}</span>
+                        <div style={{ flex: 1, height: "1px", backgroundColor: "#e5e7eb" }} />
+                      </div>
+                    )}
+                    <div style={{ display: "flex", justifyContent: isOutbound ? "flex-end" : "flex-start" }}>
+                      <div style={{ maxWidth: "75%", display: "flex", flexDirection: "column" }}>
+                        <div style={{ padding: "10px 14px", borderRadius: isOutbound ? "18px 18px 4px 18px" : "18px 18px 18px 4px", backgroundColor: isOutbound ? "#ec4899" : "#f3f4f6", color: isOutbound ? "white" : "#1f2937", fontSize: "14px", lineHeight: "1.4", whiteSpace: "pre-wrap" }}>
+                          {msg.content}
+                        </div>
+                        <span style={{ fontSize: "11px", color: "#9ca3af", marginTop: "4px", textAlign: isOutbound ? "right" : "left" }}>
+                          {msg.created_at ? fmtTime(msg.created_at) : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Reply box */}
+            <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px", display: "flex", gap: "8px", backgroundColor: "white", borderRadius: "0 0 16px 16px" }}>
+              <input
+                type="text"
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && replyText.trim() && selectedPsid) {
+                    const text = replyText; setReplyText("");
+                    void fetch(`/api/admin/clients/${selectedPsid}/send-message`, { method: "POST", headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) })
+                      .then(() => { if (selectedPsid) void fetchMessages(selectedPsid); });
+                  }
+                }}
+                placeholder="Type a reply and press Enter…"
+                style={{ flex: 1, border: "1px solid #e5e7eb", borderRadius: "999px", padding: "8px 16px", fontSize: "14px", outline: "none" }}
+              />
+              <button
+                onClick={() => {
+                  if (!replyText.trim() || !selectedPsid) return;
+                  const text = replyText; setReplyText("");
+                  void fetch(`/api/admin/clients/${selectedPsid}/send-message`, { method: "POST", headers: { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) })
+                    .then(() => { if (selectedPsid) void fetchMessages(selectedPsid); });
+                }}
+                style={{ backgroundColor: "#ec4899", color: "white", border: "none", borderRadius: "999px", padding: "8px 20px", fontSize: "14px", cursor: "pointer" }}>
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
