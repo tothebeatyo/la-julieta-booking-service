@@ -4,6 +4,7 @@ import fs from "fs";
 import { logger } from "../lib/logger";
 import { upsertClient } from "./clientService";
 import { sendTelegramAlert } from "./telegramService";
+import { notifyBooking } from "./telegramNotifier";
 import { pool } from "@workspace/db";
 
 // ─── Module-level constants (used by autoBook) ────────────────────────────────
@@ -635,6 +636,15 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
       `UPDATE clients SET anypluspro_status = $1, lead_status = 'booking_confirmed', updated_at = NOW() WHERE psid = $2`,
       [isSuccess ? "auto_booked" : "manual_booking_required", details.psid],
     ).catch(() => {});
+
+    await notifyBooking({
+      name: details.name,
+      service: details.service,
+      date: details.date,
+      time: details.time,
+      status: isSuccess ? "success" : "failed",
+      psid: details.psid,
+    });
 
     logger.info({ isSuccess }, "autoBook: complete");
     return { success: isSuccess, screenshotPath: finalShot };
