@@ -1,0 +1,140 @@
+Create a new file at:
+artifacts/api-server/src/services/anyplusService.ts
+
+This service uses Playwright to automatically log into 
+AnyPlusPro and create bookings. Here's what to build:
+
+1. DEPENDENCIES — already installed: playwright
+
+2. CREATE this full service:
+
+import { chromium, type Browser, type Page } from "playwright";
+import { logger } from "../lib/logger";
+import { pool } from "@workspace/db";
+
+const ANYPLUSPRO_URL = "https://www.lajulieta.anypluspro.com";
+const USERNAME = process.env["ANYPLUSPRO_USERNAME"] ?? "";
+const PASSWORD = process.env["ANYPLUSPRO_PASSWORD"] ?? "";
+const SCREENSHOT_DIR = "logs/screenshots";
+
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+}
+
+export interface BookingResult {
+  success: boolean;
+  screenshotPath?: string;
+  error?: string;
+}
+
+async function takeScreenshot(page: Page, name: string): Promise<string> {
+  const filename = `${SCREENSHOT_DIR}/${name}-${Date.now()}.png`;
+  await page.screenshot({ path: filename, fullPage: true });
+  logger.info({ filename }, "Screenshot saved");
+  return filename;
+}
+
+export async function autoBook(details: BookingDetails): Promise<BookingResult> {
+  let browser: Browser | null = null;
+  
+  try {
+    logger.info({ details }, "Starting AnyPlusPro auto-booking");
+    
+    browser = await chromium.launch({ 
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"]
+    });
+    
+    const page = await browser.newPage();
+    page.setDefaultTimeout(30000);
+
+    // Step 1: Navigate to login page
+    await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle" });
+    await takeScreenshot(page, "01-landing");
+    logger.info("Navigated to AnyPlusPro");
+
+    // Step 2: Take screenshot of login form so we can identify selectors
+    await takeScreenshot(page, "02-login-form");
+
+    // Step 3: Fill login form
+    // NOTE: These selectors will be updated after first screenshot run
+    await page.fill('input[type="email"], input[name="username"], input[name="email"]', USERNAME);
+    await page.fill('input[type="password"]', PASSWORD);
+    await takeScreenshot(page, "03-filled-login");
+
+    // Step 4: Submit login
+    await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign in")');
+    await page.waitForNavigation({ waitUntil: "networkidle" }).catch(() => {});
+    await takeScreenshot(page, "04-after-login");
+    logger.info("Login submitted");
+
+    // Step 5: Check if login succeeded
+    const currentUrl = page.url();
+    if (currentUrl.includes("login")) {
+      const screenshot = await takeScreenshot(page, "05-login-failed");
+      throw new Error("Login failed — still on login page");
+    }
+
+    // Step 6: Navigate to new booking
+    await takeScreenshot(page, "06-dashboard");
+    logger.info("Logged in successfully, on dashboard");
+
+    // Step 7: Update DB status to pending
+    await pool.query(
+      `UPDATE clients SET anypluspro_status = 'pending', updated_at = NOW() WHERE psid = $1`,
+      [details.psid]
+    );
+
+    // TODO: Booking form steps will be added after we see the dashboard screenshot
+    // For now, mark as manual_booking_required until selectors are confirmed
+    const screenshotPath = await takeScreenshot(page, "07-ready-for-booking");
+    
+    logger.info({ details }, "Login successful — booking form steps pending selector confirmation");
+    
+    return { 
+      success: false, 
+      screenshotPath,
+      error: "Booking form selectors not yet configured — check screenshots in logs/screenshots/"
+    };
+
+  } catch (err) {
+    logger.error({ err }, "AnyPlusPro auto-booking failed");
+    return { 
+      success: false, 
+      error: err instanceof Error ? err.message : String(err)
+    };
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+export async function retryAutoBooking(psid: string): Promise<{ success: boolean; error?: string }> {
+  const result = await pool.query(
+    "SELECT name, service, preferred_date, preferred_time FROM clients WHERE psid = $1",
+    [psid]
+  );
+  
+  if (!result.rows[0]) {
+    return { success: false, error: "Client not found" };
+  }
+
+  const row = result.rows[0];
+  return autoBook({
+    psid,
+    name: row.name,
+    service: row.service,
+    date: row.preferred_date,
+    time: row.preferred_time,
+  });
+}
+
+3. Add these environment variables to Replit Secrets:
+   ANYPLUSPRO_USERNAME = (your login email)
+   ANYPLUSPRO_PASSWORD = (your login password)
+
+4. Make sure the logs/screenshots directory exists 
+   (it already does based on app.ts)
