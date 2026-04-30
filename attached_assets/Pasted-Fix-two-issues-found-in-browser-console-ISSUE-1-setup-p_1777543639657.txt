@@ -1,0 +1,199 @@
+Fix two issues found in browser console:
+
+ISSUE 1 — setup-persistent-menu called automatically
+The dashboard is calling POST /api/admin/setup-persistent-menu
+automatically on page load which causes 400 errors.
+
+In artifacts/chatbot-landing/src/, find where 
+setup-persistent-menu is being called and make sure 
+it ONLY runs when the "Setup Menu" button is 
+manually clicked by admin.
+
+Remove any useEffect, onMount, or automatic call 
+to setup-persistent-menu.
+
+The Setup Menu button should only call it onClick:
+<button
+  onClick={async () => {
+    try {
+      const response = await fetch(
+        "/api/admin/setup-persistent-menu",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        alert("✅ Menu setup successful!");
+      } else {
+        alert(`❌ Menu error: ${JSON.stringify(data)}`);
+      }
+    } catch (err) {
+      alert(`❌ Error: ${String(err)}`);
+    }
+  }}
+>
+  Setup Menu
+</button>
+
+ISSUE 2 — Chat messages not showing
+In the same component, find the Chat button
+and completely replace it with this working version:
+
+First add these state variables at component top:
+const [selectedPsid, setSelectedPsid] = useState<string | null>(null);
+const [selectedClient, setSelectedClient] = useState<any>(null);
+const [messages, setMessages] = useState<any[]>([]);
+const [loadingMessages, setLoadingMessages] = useState(false);
+const [showChatPanel, setShowChatPanel] = useState(false);
+const [replyText, setReplyText] = useState("");
+const messagesEndRef = useRef<HTMLDivElement>(null);
+
+Add this token helper:
+const getToken = () => 
+  localStorage.getItem("adminToken") ??
+  localStorage.getItem("token") ??
+  sessionStorage.getItem("adminToken") ??
+  sessionStorage.getItem("token") ?? "";
+
+Add fetchMessages function:
+const fetchMessages = async (psid: string) => {
+  setLoadingMessages(true);
+  try {
+    const token = getToken();
+    console.log("Fetching messages for PSID:", psid);
+    console.log("Token exists:", !!token);
+    
+    const res = await fetch(
+      `/api/admin/clients/${psid}/messages`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    console.log("Response status:", res.status);
+    const data = await res.json();
+    console.log("Messages received:", data.messages?.length);
+    console.log("Full data:", data);
+    
+    setMessages(data.messages ?? []);
+    setSelectedClient(data.client ?? null);
+  } catch (err) {
+    console.error("fetchMessages error:", err);
+  } finally {
+    setLoadingMessages(false);
+  }
+};
+
+// Auto scroll when messages change
+useEffect(() => {
+  messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+}, [messages]);
+
+Update Chat button:
+<button
+  onClick={() => {
+    console.log("Chat button clicked for:", client.psid);
+    setSelectedPsid(client.psid);
+    setShowChatPanel(true);
+    fetchMessages(client.psid);
+  }}
+  className="px-3 py-1 text-sm border rounded hover:bg-gray-50"
+>
+  Chat
+</button>
+
+Add chat panel — put this AFTER the clients table,
+inside the main component return:
+
+{showChatPanel && selectedPsid && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg h-[600px] flex flex-col">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        <div>
+          <h3 className="font-semibold text-gray-800">
+            {selectedClient?.name ?? "Client"}
+          </h3>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${
+            selectedClient?.channel === "instagram" 
+              ? "bg-purple-100 text-purple-600" 
+              : "bg-blue-100 text-blue-600"
+          }`}>
+            {selectedClient?.channel === "instagram" ? "IG" : "FB"}
+          </span>
+        </div>
+        <button
+          onClick={() => {
+            setShowChatPanel(false);
+            setMessages([]);
+            setSelectedPsid(null);
+          }}
+          className="text-gray-400 hover:text-gray-600 text-xl"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
+        {loadingMessages && (
+          <div className="text-center text-gray-400 py-8">
+            Loading messages...
+          </div>
+        )}
+        
+        {!loadingMessages && messages.length === 0 && (
+          <div className="text-center text-gray-400 py-8">
+            No messages found
+          </div>
+        )}
+
+        {messages.map((msg, index) => {
+          const isOutbound = msg.direction === "outbound";
+          const currentDate = msg.created_at
+            ? new Date(msg.created_at).toLocaleDateString("en-PH", {
+                timeZone: "Asia/Manila",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
+            : null;
+          const prevDate = index > 0 && messages[index-1].created_at
+            ? new Date(messages[index-1].created_at).toLocaleDateString("en-PH", {
+                timeZone: "Asia/Manila",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
+            : null;
+          const showDivider = index === 0 || currentDate !== prevDate;
+
+          return (
+            <div key={msg.id ?? index}>
+              {showDivider && currentDate && (
+                <div className="flex items-center gap-2 my-3">
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-gray-400 px-2">
+                    {currentDate}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                </div>
+              )}
+              <div className={`flex ${isOutbound ? "justify-end" : "justify-start"}`}>
+                <div className="flex flex-col max-w-[75%]">
+                  <div className={`px-4 py-2 rounded-2xl text-sm ${
+                    isOutbound
+                      ? "bg-pink-500 text-white rounded-br-sm"
+                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                  }`}>
+                    {msg.content}
+                  </div>
+                  <span className={`text-xs text-gray-400 mt-1 ${
+                    isOutbound ? "text-right" : "text-left"
+                  }`}>
+                    {msg.created_at
+                      ? new Date(msg.created_at).toLocaleString("en-PH", {
+                          timeZone: "Asia/Manila"

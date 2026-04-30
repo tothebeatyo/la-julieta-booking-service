@@ -552,9 +552,17 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
     setMenuSetupStatus("loading");
     try {
       const r = await fetch("/api/admin/setup-persistent-menu", { method: "POST", headers: authHeaders(token) });
-      setMenuSetupStatus(r.ok ? "ok" : "error");
-    } catch {
+      const data = await r.json() as Record<string, unknown>;
+      if (r.ok) {
+        setMenuSetupStatus("ok");
+        alert("✅ Menu setup successful!\n\n" + JSON.stringify(data, null, 2));
+      } else {
+        setMenuSetupStatus("error");
+        alert("❌ Menu setup failed!\n\nStatus: " + r.status + "\n\n" + JSON.stringify(data, null, 2));
+      }
+    } catch (err) {
       setMenuSetupStatus("error");
+      alert("❌ Network error: " + String(err));
     }
   };
 
@@ -757,7 +765,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                       {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5 flex-wrap">
-                          <button onClick={() => setSelectedClient(c)}
+                          <button onClick={() => {
+                            console.log("[Chat] button clicked for:", c.psid, "name:", c.name);
+                            setSelectedClient(c);
+                          }}
                             className="text-xs px-2.5 py-1 rounded-lg border border-border hover:bg-secondary transition-colors">
                             Chat
                           </button>
