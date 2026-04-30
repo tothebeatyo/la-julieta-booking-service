@@ -1,0 +1,317 @@
+Fix the Puppeteer timeout in 
+artifacts/api-server/src/services/anyplusService.ts.
+
+The error is: page.goto timeout 30000ms exceeded
+waiting until "networkidle"
+
+COMPLETE REWRITE of the autoBook function:
+
+import puppeteer, { type Browser, type Page } from "puppeteer";
+import { logger } from "../lib/logger";
+import { pool } from "@workspace/db";
+import { notifyBooking } from "./telegramNotifier";
+import { existsSync, mkdirSync } from "fs";
+
+const ANYPLUSPRO_URL = "https://www.lajulieta.anypluspro.com";
+const USERNAME = process.env["ANYPLUSPRO_USERNAME"] ?? "";
+const PASSWORD = process.env["ANYPLUSPRO_PASSWORD"] ?? "";
+const SCREENSHOT_DIR = "logs/screenshots";
+
+if (!existsSync(SCREENSHOT_DIR)) {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+}
+
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+  phone?: string;
+  clientType?: string;
+}
+
+export interface BookingResult {
+  success: boolean;
+  screenshotPath?: string;
+  error?: string;
+}
+
+async function takeScreenshot(page: Page, name: string): Promise<string> {
+  const filename = `${SCREENSHOT_DIR}/${name}-${Date.now()}.png`;
+  await page.screenshot({ path: filename, fullPage: true });
+  logger.info({ filename }, "Screenshot saved");
+  return filename;
+}
+
+// Wait for selector with timeout, returns false if not found
+async function waitForSelectorSafe(
+  page: Page,
+  selector: string,
+  timeout = 10000
+): Promise<boolean> {
+  try {
+    await page.waitForSelector(selector, { timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Click element by text content
+async function clickByText(
+  page: Page,
+  text: string
+): Promise<boolean> {
+  return page.evaluate((searchText) => {
+    const elements = Array.from(document.querySelectorAll(
+      "button, a, span, div, li"
+    ));
+    const el = elements.find(e => 
+      e.textContent?.trim().toLowerCase().includes(searchText.toLowerCase())
+    );
+    if (el) {
+      (el as HTMLElement).click();
+      return true;
+    }
+    return false;
+  }, text);
+}
+
+export async function autoBook(
+  details: BookingDetails
+): Promise<BookingResult> {
+  let browser: Browser | null = null;
+  
+  try {
+    logger.info({ details }, "Starting AnyPlusPro booking");
+
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+        "--disable-extensions",
+        "--disable-background-networking",
+        "--disable-default-apps",
+        "--disable-sync",
+        "--disable-translate",
+        "--hide-scrollbars",
+        "--mute-audio",
+        "--window-size=1280,800",
+      ],
+      timeout: 60000,
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
+    await page.setDefaultTimeout(60000);
+    await page.setDefaultNavigationTimeout(60000);
+
+    // Block heavy resources to speed up loading
+    await page.setRequestInterception(true);
+    page.on("request", (req) => {
+      const blocked = ["image", "media", "font"];
+      if (blocked.includes(req.resourceType())) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    // ── STEP 1: Load login page ──────────────────
+    logger.info("Loading AnyPlusPro login page...");
+    
+    let pageLoaded = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await page.goto(ANYPLUSPRO_URL, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+        pageLoaded = true;
+        logger.info({ attempt }, "Page loaded");
+        break;
+      } catch (err) {
+        logger.warn({ attempt, err }, "Page load attempt failed");
+        if (attempt < 3) await page.waitForTimeout(5000);
+      }
+    }
+
+    if (!pageLoaded) {
+      throw new Error("Failed to load AnyPlusPro after 3 attempts");
+    }
+
+    // Wait for React to render login form
+    await page.waitForTimeout(4000);
+    await takeScreenshot(page, "01-login-page");
+
+    // ── STEP 2: Fill login form ──────────────────
+    logger.info("Filling login form...");
+    
+    // Wait for email input
+    const emailFound = await waitForSelectorSafe(
+      page,
+      'input[type="email"], input[placeholder*="email"], input[name="email"]',
+      15000
+    );
+    
+    if (!emailFound) {
+      await takeScreenshot(page, "02-no-login-form");
+      throw new Error("Login form not found after page load");
+    }
+
+    await page.type(
+      'input[type="email"], input[placeholder*="email"], input[name="email"]',
+      USERNAME,
+      { delay: 50 }
+    );
+    await page.type(
+      'input[type="password"]',
+      PASSWORD,
+      { delay: 50 }
+    );
+    await takeScreenshot(page, "03-filled-login");
+
+    // ── STEP 3: Submit login ─────────────────────
+    logger.info("Submitting login...");
+    await page.click('button[type="submit"]');
+    
+    // Wait for navigation or React state change
+    await page.waitForTimeout(5000);
+    await takeScreenshot(page, "04-after-login");
+
+    // Check if still on login page
+    const stillOnLogin = await page.evaluate(() => {
+      return document.body.textContent?.toLowerCase().includes("sign in") ?? false;
+    });
+
+    if (stillOnLogin) {
+      await takeScreenshot(page, "05-login-failed");
+      throw new Error("Login failed — check ANYPLUSPRO_USERNAME and ANYPLUSPRO_PASSWORD");
+    }
+
+    logger.info("Login successful!");
+    await takeScreenshot(page, "05-dashboard");
+
+    // ── STEP 4: Navigate to Appointments ─────────
+    logger.info("Navigating to appointments...");
+    
+    const appointmentsClicked = await clickByText(page, "Appointment");
+    await page.waitForTimeout(3000);
+    await takeScreenshot(page, "06-appointments");
+
+    if (!appointmentsClicked) {
+      // Try direct URL navigation
+      await page.goto(`${ANYPLUSPRO_URL}/appointments`, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      }).catch(() => {});
+      await page.waitForTimeout(3000);
+    }
+
+    // ── STEP 5: Open New Appointment modal ───────
+    logger.info("Opening new appointment modal...");
+    
+    await clickByText(page, "New Appointment");
+    await page.waitForTimeout(3000);
+    await takeScreenshot(page, "07-new-appointment-modal");
+
+    // ── STEP 6: Handle Old vs New Client ─────────
+    const isOldClient = /old/i.test(details.clientType ?? "new");
+
+    if (isOldClient) {
+      logger.info("Searching for existing patient...");
+      
+      const searchInput = await page.$(
+        'input[placeholder*="Search by name"], input[placeholder*="name, phone"]'
+      );
+      
+      if (searchInput) {
+        const firstName = details.name.split(" ")[0] ?? details.name;
+        await searchInput.type(firstName, { delay: 50 });
+        await page.waitForTimeout(2000);
+        await takeScreenshot(page, "08-patient-search");
+
+        // Click first result
+        const resultClicked = await page.evaluate((name) => {
+          const results = Array.from(document.querySelectorAll(
+            '[class*="result"], [class*="option"], [class*="patient"], [class*="suggestion"], li'
+          ));
+          const match = results.find(r => 
+            r.textContent?.toLowerCase().includes(name.toLowerCase())
+          );
+          if (match) {
+            (match as HTMLElement).click();
+            return true;
+          }
+          if (results[0]) {
+            (results[0] as HTMLElement).click();
+            return true;
+          }
+          return false;
+        }, firstName);
+
+        if (!resultClicked) {
+          logger.warn("Patient not found, registering as new");
+          await clickByText(page, "Register New");
+          await page.waitForTimeout(2000);
+          await registerNewPatient(page, details);
+        }
+      }
+    } else {
+      // New client — click Register New
+      logger.info("Registering new patient...");
+      await clickByText(page, "Register New");
+      await page.waitForTimeout(2000);
+      await takeScreenshot(page, "08-register-form");
+      await registerNewPatient(page, details);
+    }
+
+    await page.waitForTimeout(2000);
+    await takeScreenshot(page, "09-after-patient");
+
+    // ── STEP 7: Search and select service ────────
+    logger.info("Selecting service...");
+    
+    const serviceKeyword = details.service
+      .split(" ")[0]
+      .replace(/[™®]/g, "")
+      .trim();
+
+    const serviceInput = await page.$(
+      'input[placeholder*="Search services"], input[placeholder*="service"]'
+    );
+
+    if (serviceInput) {
+      await serviceInput.type(serviceKeyword, { delay: 50 });
+      await page.waitForTimeout(2000);
+      await takeScreenshot(page, "10-service-search");
+
+      await page.evaluate((keyword) => {
+        const items = Array.from(document.querySelectorAll(
+          '[class*="service"], [class*="result"], [class*="option"], [class*="item"], li'
+        ));
+        const match = items.find(i =>
+          i.textContent?.toLowerCase().includes(keyword.toLowerCase())
+        );
+        if (match) (match as HTMLElement).click();
+        else if (items[0]) (items[0] as HTMLElement).click();
+      }, serviceKeyword);
+
+      await page.waitForTimeout(1000);
+      await takeScreenshot(page, "11-service-selected");
+    }
+
+    // ── STEP 8: Set date and time ─────────────────
+    logger.info("Setting date and time...");
+
+    const time24 = convertTo24Hr(details.time);
+    const dateFormatted = formatDateForInput(details.date);
+
+    awa
