@@ -1,0 +1,153 @@
+In artifacts/api-server/src/flows/bookingFlow.ts,
+the booking details parser is broken and keeps 
+asking for info the client already provided.
+
+COMPLETELY REPLACE the entire 
+"collecting_booking_details" parser with this 
+simpler, more reliable version:
+
+if (session.step === "collecting_booking_details") {
+
+  // Split into clean lines, remove empty ones
+  const lines = text
+    .split("\n")
+    .map(l => l
+      .replace(/[\u{1F300}-\u{1FFFF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]/gu, "") // remove emojis
+      .replace(/^[\s\-\•\*\:]+/, "") // remove leading symbols
+      .trim()
+    )
+    .filter(l => l.length > 0);
+
+  logger.info({ lines }, "Parsing booking details lines");
+
+  // Start with whatever session already has
+  let clientType = session.clientType ?? null;
+  let name = session.name ?? null;
+  let phone = session.phone ?? null;
+  let service = session.service ?? null;
+  let date = session.date ?? null;
+  let time = session.time ?? null;
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+
+    // ── Client Type ──────────────────────────────
+    if (/^(new|old)(\s+client)?$/i.test(line)) {
+      clientType = /old/i.test(line) ? "Old" : "New";
+      continue;
+    }
+
+    // ── Phone Number ─────────────────────────────
+    // Must match Philippine numbers: 09XX or +63
+    const phoneMatch = line.replace(/[\s\-]/g, "").match(/^(\+?63|0)\d{9,10}$/);
+    if (phoneMatch) {
+      phone = line.trim();
+      continue;
+    }
+
+    // ── Time ─────────────────────────────────────
+    if (/\d{1,2}(:\d{2})?\s*(am|pm)/i.test(line) ||
+        /^(morning|afternoon|evening|noon|umaga|hapon|gabi)$/i.test(line)) {
+      time = line.trim();
+      continue;
+    }
+
+    // ── Date ─────────────────────────────────────
+    if (/tomorrow|bukas|today|ngayon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miyerkules|huwebes|biyernes|sabado|linggo/i.test(line) ||
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(line) ||
+        /\b\d{1,2}[\/-]\d{1,2}\b/.test(line) ||
+        /\b(may|june|july|april|march|august|september|october|november|december|january|february)\s+\d{1,2}/i.test(line)) {
+      date = line.trim();
+      continue;
+    }
+
+    // ── Service / Treatment ──────────────────────
+    if (/facial|microneedling|bb glow|laser|hair removal|hifu|tightening|slimming|iv drip|warts|injectable|lemon bottle|mesolipo|gluta|glutathione|botox|filler|prp|salmon|stretch/i.test(line)) {
+      if (!session.service) service = line.trim(); // don't override if already set
+      continue;
+    }
+
+    // ── Name ─────────────────────────────────────
+    // Whatever is left that's not a number, not a keyword
+    // and looks like a real name (has letters, reasonable length)
+    if (!name &&
+        line.length >= 2 &&
+        line.length <= 60 &&
+        /[a-zA-Z]/.test(line) &&
+        !/^\d+$/.test(line) &&
+        !/^(new|old|yes|no|wala|meron)$/i.test(line)) {
+      name = line.trim();
+      continue;
+    }
+  }
+
+  logger.info({ clientType, name, phone, service, date, time }, "Parsed booking details");
+
+  // Check what's still missing
+  const missing: string[] = [];
+  if (!clientType) missing.push("Old or New Client (type Old or New)");
+  if (!name) missing.push("full name");
+  if (!phone) missing.push("mobile number");
+  if (!date) missing.push("preferred date");
+  if (!time) missing.push("preferred time");
+
+  // Save partial progress to session
+  setSession(psid, {
+    step: "collecting_booking_details",
+    clientType: clientType ?? session.clientType,
+    name: name ?? session.name,
+    phone: phone ?? session.phone,
+    service: service ?? session.service,
+    date: date ?? session.date,
+    time: time ?? session.time,
+  });
+
+  if (missing.length > 0) {
+    // Only ask for what's still missing
+    const missingText = missing.length === 1
+      ? missing[0]
+      : missing.join(" and ");
+    
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Almost there! 😊 Could you also share your ${missingText}?`,
+      [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }],
+      800
+    );
+    return;
+  }
+
+  // ── All details collected — show summary ─────
+  const finalService = service ?? session.service ?? "your treatment";
+  
+  setSession(psid, {
+    step: "confirming_booking",
+    clientType,
+    name,
+    phone,
+    service: finalService,
+    date,
+    time,
+  });
+
+  await sendWithDelayAndQuickReplies(
+    psid,
+    `Perfect! Here's your booking summary 📋
+
+🔘 ${clientType} Client
+👤 ${name}
+📱 ${phone}
+💆 ${finalService}
+📅 ${date}
+🕐 ${time}
+
+Is everything correct?`,
+    [
+      { title: "✅ Confirm Booking", payload: "CONFIRM_BOOKING" },
+      { title: "✏️ Edit Details", payload: "EDIT_BOOKING" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    800
+  );
+  return;
+}

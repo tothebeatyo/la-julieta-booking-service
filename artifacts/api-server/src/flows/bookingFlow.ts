@@ -1226,97 +1226,117 @@ async function sendBookingFormRequest(psid: string, service: string): Promise<vo
 async function handleBookingFormEntry(psid: string, text: string): Promise<void> {
   const session = getSession(psid);
 
-  // ── Smart line-by-line parser (detects by value pattern, not just labels) ──
+  // ── Clean lines: strip emojis + leading punctuation, keep actual content ───
   const lines = text
     .split("\n")
-    .map(l => l.trim())
+    .map(l =>
+      l
+        .replace(/[\u{1F300}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+        .replace(/^[\s\-•*:⚪🔘]+/, "")
+        .trim()
+    )
     .filter(l => l.length > 0);
 
-  let clientType: string | null = null;
-  let name: string | null = null;
-  let phone: string | null = null;
-  let date: string | null = null;
-  let time: string | null = null;
+  logger.info({ lines }, "Parsing booking form lines");
+
+  // Start with whatever is already stored in session
+  let clientType: string | null = session.clientType ?? null;
+  let name: string | null = session.name ?? null;
+  let phone: string | null = session.mobile ?? null;
+  let date: string | null = session.date ?? null;
+  let time: string | null = session.time ?? null;
 
   for (const line of lines) {
-    // Strip leading emoji and common label prefixes
-    const clean = line
-      .replace(/[\u{1F300}-\u{1FFFF}]/gu, "")
-      .replace(/^(old or new client|client type|type|old\/new|new|old|name|mobile|mobile number|phone|date|preferred date|time|preferred time)\s*[:\-]?\s*/i, "")
-      .trim();
-
-    // Client type
-    if (
-      /^(new|old)$/i.test(clean) ||
-      /^(new|old)\s*client$/i.test(clean) ||
-      line.toLowerCase().includes("new client") ||
-      line.toLowerCase().includes("old client")
-    ) {
+    // ── Client type — check BEFORE stripping labels ───────────────────────
+    if (/^(new|old)(\s+client)?$/i.test(line) ||
+        /old or new client\s*[:\-]?\s*(new|old)/i.test(line) ||
+        /client type\s*[:\-]?\s*(new|old)/i.test(line)) {
       clientType = /old/i.test(line) ? "Old" : "New";
       continue;
     }
 
-    // Phone number: starts with 09/+63 or exactly 11 digits
-    if (
-      /^(\+63|0)\d{9,10}$/.test(clean.replace(/\s/g, "")) ||
-      /^\d{11}$/.test(clean.replace(/\s/g, ""))
-    ) {
+    // Strip common label prefixes for the remaining checks
+    const clean = line
+      .replace(/^(old or new client|client type|type|name|full name|mobile(?: number)?|phone|contact|date|preferred date|time|preferred time)\s*[:\-]?\s*/i, "")
+      .trim();
+
+    if (!clean) continue;
+
+    // ── Phone number: 09XX… or +63… ──────────────────────────────────────
+    const digits = clean.replace(/[\s\-]/g, "");
+    if (/^(\+?63|0)\d{9,10}$/.test(digits) || /^\d{11}$/.test(digits)) {
       phone = clean;
       continue;
     }
 
-    // Time: has AM/PM, or time-of-day words
-    if (/\d{1,2}(:\d{2})?\s*(am|pm)|morning|afternoon|evening|noon/i.test(clean)) {
+    // ── Time: 2PM, 10:30am, morning, hapon… ──────────────────────────────
+    if (/\d{1,2}(:\d{2})?\s*(am|pm)/i.test(clean) ||
+        /^(morning|afternoon|evening|noon|umaga|hapon|gabi)$/i.test(clean)) {
       time = clean;
       continue;
     }
 
-    // Date: month names, relative words, or numeric date formats
-    if (/tomorrow|bukas|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[-\/]\d{1,2}/i.test(clean)) {
+    // ── Date: month names, weekday names, relative words, numeric ────────
+    if (/tomorrow|bukas|today|ngayon|monday|tuesday|wednesday|thursday|friday|saturday|sunday|lunes|martes|miyerkules|huwebes|biyernes|sabado|linggo/i.test(clean) ||
+        /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(clean) ||
+        /\b(january|february|march|april|june|july|august|september|october|november|december)\s+\d{1,2}/i.test(clean) ||
+        /\b\d{1,2}[\/\-]\d{1,2}\b/.test(clean)) {
       date = clean;
       continue;
     }
 
-    // Fallback: anything left that isn't purely numeric is treated as a name
-    if (!name && clean.length > 1 && !/^\d+$/.test(clean)) {
+    // ── Service keyword — only fill if not already set from flow ─────────
+    if (!session.service &&
+        /facial|microneedling|bb glow|laser|hair removal|hifu|tightening|slimming|iv drip|warts|injectable|lemon bottle|mesolipo|gluta|glutathione|botox|filler|prp|salmon|stretch/i.test(clean)) {
+      // service carries from session; only capture if nothing was set
+      continue;
+    }
+
+    // ── Name: letters, reasonable length, not a keyword ──────────────────
+    if (!name &&
+        clean.length >= 2 &&
+        clean.length <= 60 &&
+        /[a-zA-Z]/.test(clean) &&
+        !/^\d+$/.test(clean) &&
+        !/^(new|old|yes|no|wala|meron|confirm|cancel)$/i.test(clean)) {
       name = clean;
     }
   }
 
-  // ── STEP 2: carry over any partial data already in session ─────────────────
-  if (!clientType) clientType = session.clientType ?? null;
-  if (!name)       name       = session.name       ?? null;
-  if (!phone)      phone      = session.mobile     ?? null;
-  if (!date)       date       = session.date       ?? null;
-  if (!time)       time       = session.time       ?? null;
+  logger.info({ clientType, name, phone, date, time }, "Booking form parsed");
 
-  // ── Check what's still missing ────────────────────────────────────────────
+  // Save partial progress so each message builds on the last
+  setSession(psid, {
+    step: "entering_booking_form",
+    clientType: clientType ?? undefined,
+    name:       name       ?? undefined,
+    mobile:     phone      ?? undefined,
+    date:       date       ?? undefined,
+    time:       time       ?? undefined,
+  });
+
+  // ── What's still missing? ──────────────────────────────────────────────
   const missing: string[] = [];
-  if (!clientType) missing.push("Old or New Client");
+  if (!clientType) missing.push("Old or New Client (type Old or New)");
   if (!name)       missing.push("full name");
   if (!phone)      missing.push("mobile number");
   if (!date)       missing.push("preferred date");
   if (!time)       missing.push("preferred time");
 
   if (missing.length > 0) {
-    setSession(psid, {
-      step: "entering_booking_form",
-      clientType: clientType ?? undefined,
-      name:       name       ?? undefined,
-      mobile:     phone      ?? undefined,
-      date:       date       ?? undefined,
-      time:       time       ?? undefined,
-    });
+    const missingText = missing.length === 1
+      ? missing[0]!
+      : missing.join(" and ");
     await sendWithDelayAndQuickReplies(
       psid,
-      `Almost there! 😊 Could you also share your ${missing.join(", ")}?`,
+      `Almost there! 😊 Could you also share your ${missingText}?`,
       TALK_TO_STAFF_QR,
       800,
     );
     return;
   }
 
-  // ── All details collected — save and show confirmation ────────────────────
+  // ── All collected — go to confirmation ─────────────────────────────────
   setSession(psid, {
     clientType: clientType!,
     name:       name!,
@@ -1324,7 +1344,6 @@ async function handleBookingFormEntry(psid: string, text: string): Promise<void>
     date:       date!,
     time:       time!,
   });
-
   await showFinalConfirmation(psid);
 }
 
