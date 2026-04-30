@@ -1,28 +1,51 @@
+import { randomBytes } from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-const sessions = new Map<string, { expires: number }>();
+// Create the admin_sessions table if it doesn't exist yet
+async function initSessionTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      token      TEXT        PRIMARY KEY,
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `);
+}
+initSessionTable().catch((err) => logger.error({ err }, "Failed to initialise admin_sessions table"));
 
 function generateToken(): string {
-  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return randomBytes(32).toString("hex");
 }
 
-function authMiddleware(req: Request, res: Response, next: () => void): void {
+async function authMiddleware(req: Request, res: Response, next: () => void): Promise<void> {
   const token = req.headers["authorization"]?.replace("Bearer ", "") ?? req.query["token"] as string;
-  const session = token ? sessions.get(token) : null;
-  if (!session || session.expires < Date.now()) {
-    if (token) sessions.delete(token);
+  if (!token) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
-  next();
+  try {
+    const result = await pool.query<{ expires_at: Date }>(
+      "SELECT expires_at FROM admin_sessions WHERE token = $1",
+      [token],
+    );
+    const row = result.rows[0];
+    if (!row || row.expires_at < new Date()) {
+      await pool.query("DELETE FROM admin_sessions WHERE token = $1", [token]);
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    next();
+  } catch (err) {
+    logger.error({ err }, "Session lookup failed");
+    res.status(500).json({ error: "Internal error" });
+  }
 }
 
 // POST /api/admin/login
-router.post("/login", (req: Request, res: Response) => {
+router.post("/login", async (req: Request, res: Response) => {
   const { username, password } = req.body as { username?: string; password?: string };
   const validUser = process.env["ADMIN_USERNAME"];
   const validPass = process.env["ADMIN_PASSWORD"];
@@ -33,10 +56,19 @@ router.post("/login", (req: Request, res: Response) => {
   }
 
   if (username === validUser && password === validPass) {
-    const token = generateToken();
-    sessions.set(token, { expires: Date.now() + 8 * 60 * 60 * 1000 });
-    logger.info({ username }, "Admin login successful");
-    res.json({ token });
+    try {
+      const token = generateToken();
+      const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+      await pool.query(
+        "INSERT INTO admin_sessions (token, expires_at) VALUES ($1, $2)",
+        [token, expiresAt],
+      );
+      logger.info({ username }, "Admin login successful");
+      res.json({ token });
+    } catch (err) {
+      logger.error({ err }, "Failed to create session");
+      res.status(500).json({ error: "Login failed" });
+    }
   } else {
     logger.warn({ username }, "Admin login failed");
     res.status(401).json({ error: "Invalid credentials" });
@@ -44,9 +76,11 @@ router.post("/login", (req: Request, res: Response) => {
 });
 
 // POST /api/admin/logout
-router.post("/logout", (req: Request, res: Response) => {
+router.post("/logout", async (req: Request, res: Response) => {
   const token = req.headers["authorization"]?.replace("Bearer ", "");
-  if (token) sessions.delete(token);
+  if (token) {
+    await pool.query("DELETE FROM admin_sessions WHERE token = $1", [token]).catch(() => {});
+  }
   res.json({ ok: true });
 });
 
