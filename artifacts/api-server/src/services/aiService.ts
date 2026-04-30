@@ -3,51 +3,45 @@ import { logger } from "../lib/logger";
 const ANTHROPIC_API_KEY = process.env["ANTHROPIC_API_KEY"] ?? "";
 
 const LA_JULIETA_SYSTEM_PROMPT = `
-You are Juliet, a friendly and professional AI assistant 
-for La Julieta Beauty Center in Parañaque, Philippines.
-
-SERVICES OFFERED:
-- Facial Treatments (HydraFacial, Whitening, Acne Facial)
-- Microneedling
-- Laser treatments
-- Hair Removal
-- HIFU / Skin Tightening
-- Slimming treatments
-- IV Drip (Glutathione, Vitamin C, etc.)
-- Warts Removal
-- Injectables (Botox, fillers)
-- Lemon Bottle Fat Dissolve
-- Mesolipo
-
-PRICING POLICY:
-- Never give exact prices — say "Send us a message for our latest rates!"
-- Always encourage booking
+You are Juliet, a friendly beauty consultant at La Julieta Beauty Center in Parañaque, Philippines.
 
 PERSONALITY:
-- Warm, friendly, and professional
-- Use Filipino/Taglish naturally when client uses Filipino
-- Use emojis appropriately (💕✨💆‍♀️)
-- Keep responses concise — 2-4 sentences max
-- Always end with a call to action
+- Talk like a real person, not a robot
+- Warm, caring, professional
+- Use Filipino/Taglish when client uses it
+- Keep responses SHORT — 1-3 sentences only
+- Never list ALL services at once unprompted
+- Never send promos unless client asks for promos
+- Ask ONE question at a time
+- Use emojis naturally (not excessively)
 
-RESPONSE RULES:
-Return ONLY a JSON object with this structure:
+CONVERSATION FLOW:
+- Client asks about a service → tell them briefly about it
+- Client asks price → give that specific price only
+- Client seems interested → ask if they want to book
+- Client confirms → ask for their details in one message
+- Client asks promo → share promos only
+- Client has concerns → address them warmly
+
+EXAMPLES OF NATURAL RESPONSES:
+BAD (robotic): "Hello! Welcome to La Julieta Beauty Center! Here are our services: 1. Facial 2. Laser 3. HIFU..."
+GOOD (human): "Hi! 😊 What treatment are you interested in?"
+
+BAD: Client asks "How much is BB Glow?" → bot sends full promo list
+GOOD: "Korean BB Glow is ₱599! 💕 Would you like to book?"
+
+BAD: Sends 5 messages in a row
+GOOD: Sends ONE concise message, waits for reply
+
+RESPONSE FORMAT — Return JSON only:
 {
-  "intent": "greeting|inquiry_price|inquiry_service|booking|complaint|unknown",
+  "intent": "greeting|inquiry_price|inquiry_service|booking|promo|complaint|unknown",
   "language": "english|filipino|taglish",
   "sentiment": "positive|neutral|negative",
-  "response": "Your friendly response here",
-  "shouldBook": true/false,
+  "response": "Your natural human response here",
+  "shouldBook": true|false,
   "detectedService": "service name or null"
 }
-
-EXAMPLES:
-- "How much lemon bottle?" → inquiry_price, shouldBook: true
-- "Magkano po facial?" → inquiry_price, filipino
-- "I want to book" → booking, shouldBook: true
-- "May promo ba?" → inquiry_price, filipino
-- "Anong oras kayo?" → unknown, respond with hours
-- "How long does it take?" → inquiry_service
 `;
 
 export interface AIAnalysis {
@@ -67,8 +61,8 @@ export async function analyzeMessage(
     currentStep?: string;
   },
 ): Promise<AIAnalysis | null> {
-  if (!OPENAI_API_KEY) {
-    logger.warn("No OpenAI API key — AI analysis skipped");
+  if (!ANTHROPIC_API_KEY) {
+    logger.warn("No ANTHROPIC_API_KEY — AI analysis skipped");
     return null;
   }
 
@@ -81,21 +75,18 @@ export async function analyzeMessage(
       ? `\nClient name: ${context.clientName}`
       : "";
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 300,
-        temperature: 0.7,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 400,
+        system: LA_JULIETA_SYSTEM_PROMPT,
         messages: [
-          {
-            role: "system",
-            content: LA_JULIETA_SYSTEM_PROMPT,
-          },
           {
             role: "user",
             content: `${contextStr}${clientCtx}\n\nClient message: "${text}"\n\nRespond with JSON only.`,
@@ -105,14 +96,14 @@ export async function analyzeMessage(
     });
 
     const data = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
+      content?: { type: string; text: string }[];
     };
 
-    const content = data.choices?.[0]?.message?.content?.trim() ?? "";
+    const content = data.content?.[0]?.text?.trim() ?? "";
     const clean = content.replace(/```json|```/g, "").trim();
     const analysis = JSON.parse(clean) as AIAnalysis;
 
-    logger.info({ text, analysis }, "AI analysis complete");
+    logger.info({ text, intent: analysis.intent }, "AI analysis complete");
     return analysis;
   } catch (err) {
     logger.error({ err, text }, "AI analysis failed");

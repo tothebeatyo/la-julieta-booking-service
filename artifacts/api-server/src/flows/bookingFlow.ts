@@ -43,6 +43,75 @@ const TALK_TO_STAFF_QR = [{ title: "👩‍⚕️ Talk to Agent", payload: "INTE
 // Injectable services that need safety screening before recommendation
 const INJECTABLE_SERVICES = new Set(["IV Drip", "Slimming / Fat Dissolve", "Lemon Bottle Fat Dissolve", "Mesolipo"]);
 
+// Maps BOOK_* payloads → service name
+const BOOK_PAYLOAD_SERVICE_MAP: Record<string, string> = {
+  BOOK_FACIAL:       "Facial Treatment",
+  BOOK_MICRONEEDLING:"Microneedling",
+  BOOK_LASER:        "Laser Treatment",
+  BOOK_HAIR_REMOVAL: "Hair Removal",
+  BOOK_HIFU:         "HIFU Tightening",
+  BOOK_SLIMMING:     "Slimming Treatment",
+  BOOK_IV_DRIP:      "IV Drip",
+  BOOK_WARTS:        "Warts Removal",
+  BOOK_INJECTABLES:  "Injectables",
+  BOOK_LEMON_BOTTLE: "Lemon Bottle Fat Dissolve",
+  BOOK_MESOLIPO:     "Mesolipo",
+};
+
+// Related service suggestions shown when client says "No" after viewing a service
+const RELATED_SERVICES: Record<string, { suggestion: string; message: string; payload: string }[]> = {
+  FACIAL: [
+    { suggestion: "Microneedling",      message: "We also have Microneedling which gives deeper skin rejuvenation! 💕",              payload: "INTENT_MICRONEEDLING" },
+    { suggestion: "Korean BB Glow",     message: "You might also like our Korean BB Glow for that glass skin effect! ✨",            payload: "INTENT_MICRONEEDLING" },
+    { suggestion: "Laser",              message: "We also offer Laser treatments for brighter and clearer skin! ✨",                  payload: "INTENT_LASER" },
+  ],
+  MICRONEEDLING: [
+    { suggestion: "Facial",             message: "We also have relaxing Facial Treatments if you prefer something gentler! 🧖",       payload: "INTENT_FACIALS" },
+    { suggestion: "BB Glow Facial",     message: "You might also like our BB Glow Facial for instant glow! ✨",                       payload: "INTENT_FACIALS" },
+    { suggestion: "Laser",              message: "We also have Laser treatments for skin brightening! 💕",                            payload: "INTENT_LASER" },
+  ],
+  LASER: [
+    { suggestion: "HIFU",               message: "We also have HIFU for skin tightening and lifting! 💪",                            payload: "INTENT_HIFU" },
+    { suggestion: "Facial",             message: "You might also enjoy our Facial Treatments for a relaxing glow! 🧖",               payload: "INTENT_FACIALS" },
+    { suggestion: "Microneedling",      message: "We also have Microneedling for deeper skin renewal! 🔬",                           payload: "INTENT_MICRONEEDLING" },
+  ],
+  HAIR_REMOVAL: [
+    { suggestion: "Laser",              message: "We also have Laser treatments which can help with hair reduction too! ✨",           payload: "INTENT_LASER" },
+    { suggestion: "Skin Tightening",    message: "You might also like our HIFU for smoother skin! 💪",                               payload: "INTENT_HIFU" },
+  ],
+  HIFU: [
+    { suggestion: "Slimming",           message: "We also have Slimming treatments for body contouring! ⚡",                         payload: "INTENT_SLIMMING" },
+    { suggestion: "Laser",              message: "Our Laser treatments are also great for skin tightening! ✨",                       payload: "INTENT_LASER" },
+    { suggestion: "Lemon Bottle",       message: "You might also like Lemon Bottle Fat Dissolve! 🍋",                                payload: "INTENT_LEMON_BOTTLE" },
+  ],
+  SLIMMING: [
+    { suggestion: "Lemon Bottle",       message: "We also have Lemon Bottle Fat Dissolve for targeted areas! 🍋",                    payload: "INTENT_LEMON_BOTTLE" },
+    { suggestion: "Mesolipo",           message: "You might also like Mesolipo for slimming and contouring! ✨",                     payload: "INTENT_MESOLIPO" },
+    { suggestion: "HIFU",               message: "We also have HIFU for skin tightening after slimming! 💪",                        payload: "INTENT_HIFU" },
+  ],
+  LEMON_BOTTLE: [
+    { suggestion: "Mesolipo",           message: "We also have Mesolipo which works great for body contouring! ✨",                  payload: "INTENT_MESOLIPO" },
+    { suggestion: "Slimming",           message: "Check out our other Slimming treatments too! ⚡",                                  payload: "INTENT_SLIMMING" },
+    { suggestion: "HIFU",               message: "HIFU Tightening is also popular after fat dissolve treatments! 💪",                payload: "INTENT_HIFU" },
+  ],
+  MESOLIPO: [
+    { suggestion: "Lemon Bottle",       message: "We also have Lemon Bottle Fat Dissolve for targeted fat reduction! 🍋",            payload: "INTENT_LEMON_BOTTLE" },
+    { suggestion: "Slimming",           message: "Check out our other Slimming treatments! ⚡",                                      payload: "INTENT_SLIMMING" },
+  ],
+  IV_DRIP: [
+    { suggestion: "Glutathione",        message: "We also have Glutathione Injectables for skin whitening! 💉",                      payload: "INTENT_INJECTABLES" },
+    { suggestion: "Facial",             message: "Pair it with our Facial treatments for a complete glow! 🧖",                      payload: "INTENT_FACIALS" },
+  ],
+  INJECTABLES: [
+    { suggestion: "IV Drip",            message: "We also have IV Drip for that inner glow and whitening! 💉",                      payload: "INTENT_IV_DRIP" },
+    { suggestion: "Facial",             message: "You might also enjoy our Facial treatments! 🧖",                                  payload: "INTENT_FACIALS" },
+  ],
+  WARTS: [
+    { suggestion: "Laser",              message: "We also have Laser treatments for clearer skin! ✨",                               payload: "INTENT_LASER" },
+    { suggestion: "Facial",             message: "Follow up with our Facial treatments for smoother skin! 🧖",                      payload: "INTENT_FACIALS" },
+  ],
+};
+
 async function delay(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
 }
@@ -178,6 +247,33 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     return;
   }
 
+  // ── Price query shortcut — fast deterministic response before AI ─────────────
+  const isPriceQuery = /how much|magkano|price|presyo|cost|rate|how much is|how much for/i.test(text);
+  const isPromoQuery = /promo|deal|discount|sale|free|freebies|may promo|anong promo/i.test(text);
+
+  if (text && !payload && isPriceQuery && !isPromoQuery) {
+    const pricePatterns: { regex: RegExp; intentPayload: string }[] = [
+      { regex: /bb glow|korean bb/i,                intentPayload: "INTENT_MICRONEEDLING" },
+      { regex: /microneedling/i,                     intentPayload: "INTENT_MICRONEEDLING" },
+      { regex: /lemon bottle/i,                      intentPayload: "INTENT_LEMON_BOTTLE" },
+      { regex: /mesolipo/i,                          intentPayload: "INTENT_MESOLIPO" },
+      { regex: /iv drip|glutathione|gluta drip/i,    intentPayload: "INTENT_IV_DRIP" },
+      { regex: /warts/i,                             intentPayload: "INTENT_WARTS" },
+      { regex: /injectable|botox|filler/i,           intentPayload: "INTENT_INJECTABLES" },
+      { regex: /slimming/i,                          intentPayload: "INTENT_SLIMMING" },
+      { regex: /hair removal/i,                      intentPayload: "INTENT_HAIR_REMOVAL" },
+      { regex: /hifu|tightening|ultraformer/i,       intentPayload: "INTENT_HIFU" },
+      { regex: /laser/i,                             intentPayload: "INTENT_LASER" },
+      { regex: /facial/i,                            intentPayload: "INTENT_FACIALS" },
+    ];
+    for (const { regex, intentPayload } of pricePatterns) {
+      if (regex.test(text)) {
+        await handleIntentChoice(psid, text, intentPayload);
+        return;
+      }
+    }
+  }
+
   // ── AI analysis — only for free-text messages outside active booking steps ──
   const activeSteps = new Set([
     "entering_booking_form",
@@ -267,10 +363,30 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     return;
   }
 
+  // BOOK_* payloads — client tapped "Book This" from a service price card
+  if (payload && BOOK_PAYLOAD_SERVICE_MAP[payload]) {
+    const service = BOOK_PAYLOAD_SERVICE_MAP[payload]!;
+    if (INJECTABLE_SERVICES.has(service) && !session.screeningPassed) {
+      setSession(psid, { service });
+      await startSafetyScreening(psid, service);
+      return;
+    }
+    setSession(psid, { step: "entering_booking_form", service, retryCount: 0 });
+    upsertClient({ psid, service, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Great choice! 💕 Please send your details:\n\n⚪ Old or New Client:\n👤 Name:\n📱 Mobile Number:\n📅 Preferred Date:\n🕐 Preferred Time:\n\nExample:\n⚪ New\n👤 Maria Santos\n📱 09171234567\n📅 May 5\n🕐 2PM`,
+      TALK_TO_STAFF_QR,
+      800,
+    );
+    return;
+  }
+
   switch (session.step) {
     case "idle":
     case "choosing_intent":
     case "choosing_skin_concern":
+    case "viewing_service":
     case "awaiting_book_decision": {
       await handleIntentChoice(psid, text, payload);
       break;
@@ -509,6 +625,59 @@ async function handleSkinConcern(psid: string, payload: string): Promise<void> {
 async function handleIntentChoice(psid: string, text: string, payload?: string): Promise<void> {
   const session = getSession(psid);
 
+  // ── "No" after viewing a service — suggest related services ─────────────────
+  if (session.step === "viewing_service" && !payload) {
+    const isNo = /^(no|nope|hindi|ayaw|ayoko|di na|di|nah|not now|maybe later|wala na|no thanks|no thank you)$/i.test(text.trim());
+    const isMaybe = /maybe|later|mamaya|baka|not sure|di pa|hindi pa|i'll think|magisip muna/i.test(text);
+
+    if (isMaybe) {
+      await sendWithDelayAndQuickReplies(
+        psid,
+        "Of course, take your time! 😊 We're always here when you're ready. In the meantime, would you like to check out our other treatments? 💕",
+        [
+          { title: "💆 View All Services", payload: "SHOW_ALL_SERVICES" },
+          { title: "🎉 View Promos",       payload: "INTENT_PROMOS" },
+          { title: "👩‍⚕️ Talk to Agent",   payload: "INTENT_STAFF" },
+        ],
+        800,
+      );
+      return;
+    }
+
+    if (isNo) {
+      const cat = session.serviceCategory ?? "FACIAL";
+      const related = RELATED_SERVICES[cat] ?? [];
+      if (related.length > 0) {
+        const suggestion = related[0]!;
+        const quickReplies = [
+          ...related.map(r => ({ title: r.suggestion, payload: r.payload })),
+          { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+        ];
+        await sendWithDelayAndQuickReplies(
+          psid,
+          `No problem! 😊 ${suggestion.message}\n\nWould you like to know more about any of these?`,
+          quickReplies,
+          800,
+        );
+      } else {
+        await sendWithDelayAndQuickReplies(
+          psid,
+          "No worries! 😊 We have lots of other treatments that might interest you! Which one would you like to explore?",
+          [
+            { title: "🧖 Facials",         payload: "INTENT_FACIALS" },
+            { title: "🔬 Microneedling",   payload: "INTENT_MICRONEEDLING" },
+            { title: "✨ Laser",           payload: "INTENT_LASER" },
+            { title: "⚡ Slimming",        payload: "INTENT_SLIMMING" },
+            { title: "💉 IV Drip",         payload: "INTENT_IV_DRIP" },
+            { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+          ],
+          800,
+        );
+      }
+      return;
+    }
+  }
+
   // "Yes" / affirmative text when waiting for booking decision — go straight to booking
   if (session.step === "awaiting_book_decision" && session.service && !payload) {
     const isYes = /^(yes|oo|opo|sure|sige|ayos|ok|okay|go|push|yep|yup|tara|sali|gusto|i want|book|pls|please|ayan|booking|let's go|lets go|sali na|sige na|oo na|sure na)$/i.test(text.trim());
@@ -602,12 +771,6 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     return;
   }
 
-  // Injectable service with safety screening shortcut
-  if (payload === "SCREENING_GLUTA") {
-    await startSafetyScreening(psid, "IV Drip");
-    return;
-  }
-
   // Any SVC_* payload — route to pricing or safety screening
   // Covers SVC_FACIAL, SVC_MICRO, SVC_LASER, SVC_HAIR, SVC_HIFU, SVC_WARTS, SVC_DRIP, SVC_SLIM
   if (payload && PAYLOAD_TO_SERVICE[payload]) {
@@ -684,9 +847,197 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     }
   }
 
-  // Facial treatments shortcut
+  // ── Show all services menu ───────────────────────────────────────────────────
+  if (payload === "SHOW_ALL_SERVICES") {
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "Sure! Here's what we offer 💕 Which one interests you?",
+      [
+        { title: "🧖 Facials",          payload: "INTENT_FACIALS" },
+        { title: "🔬 Microneedling",    payload: "INTENT_MICRONEEDLING" },
+        { title: "✨ Laser",            payload: "INTENT_LASER" },
+        { title: "🪒 Hair Removal",     payload: "INTENT_HAIR_REMOVAL" },
+        { title: "💪 HIFU",            payload: "INTENT_HIFU" },
+        { title: "⚡ Slimming",         payload: "INTENT_SLIMMING" },
+        { title: "💉 IV Drip",          payload: "INTENT_IV_DRIP" },
+        { title: "🍋 Lemon Bottle",     payload: "INTENT_LEMON_BOTTLE" },
+        { title: "💊 Injectables",      payload: "INTENT_INJECTABLES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Facial Treatments ────────────────────────────────────────────────────────
   if (payload === "INTENT_FACIALS" || /\b(facial|face treatment|pangmukha)\b/i.test(text)) {
-    await sendPricingAndPromos(psid, "Facial");
+    setSession(psid, { step: "viewing_service", service: "Facial Treatment", serviceCategory: "FACIAL" });
+    upsertClient({ psid, service: "Facial Treatment", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `🧖 *FACIAL TREATMENTS* — Price List (₱)\n\n- Basic Facial — 299\n- HydraFacial — 999\n- Whitening Facial — 799\n- Acne Facial — 699\n- Korean Glass Skin Facial — 899\n\nAdd-ons:\n- LED Light Therapy — 199\n- Oxygen Infusion — 299`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_FACIAL" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Microneedling ────────────────────────────────────────────────────────────
+  if (payload === "INTENT_MICRONEEDLING" || /\b(microneedling|bb glow|korean bb|acneklear|salmon dna|prp)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Microneedling", serviceCategory: "MICRONEEDLING" });
+    upsertClient({ psid, service: "Microneedling", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `🔬 *MICRONEEDLING* — Price List (₱)\n\n- Korean BB Glow — 599\n- AcneKléar Microneedling — 1,099\n- PRP Microneedling — 1,399\n- Salmon DNA Microneedling — 1,899\n- Stretch Marks Microneedling — 2,099\n\nAdd-ons:\n- Korean BB Glow Tint — 199\n- Whitening Stem Cell — 299\n- Hyaluronic Aqua Stem Cell — 299`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_MICRONEEDLING" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Laser ────────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_LASER" || /\b(laser|carbon peel|pico|skin rejuve)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Laser Treatment", serviceCategory: "LASER" });
+    upsertClient({ psid, service: "Laser Treatment", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `✨ *LASER TREATMENTS* — Price List (₱)\n\n- Carbon Laser Peel — 799\n- Pico Laser — 1,299\n- Fractional CO2 Laser — 2,499\n- Skin Rejuvenation Laser — 999\n- Laser Hair Reduction (small area) — 499`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_LASER" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Hair Removal ─────────────────────────────────────────────────────────────
+  if (payload === "INTENT_HAIR_REMOVAL" || /\b(hair removal|diode|underarm hair)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Hair Removal", serviceCategory: "HAIR_REMOVAL" });
+    upsertClient({ psid, service: "Hair Removal", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `🪒 *LASER HAIR REMOVAL* — Price List (₱)\n\n- Underarm — 499\n- Arms (half) — 799\n- Arms (full) — 1,299\n- Legs (half) — 999\n- Legs (full) — 1,799\n- Bikini Line — 799\n- Full Body — 3,999`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_HAIR_REMOVAL" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── HIFU / Skin Tightening ───────────────────────────────────────────────────
+  if (payload === "INTENT_HIFU" || /\b(hifu|ultraformer|thermagic|rf|thermage|exislim|tightening)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "HIFU Tightening", serviceCategory: "HIFU" });
+    upsertClient({ psid, service: "HIFU Tightening", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `💪 *HIFU / SKIN TIGHTENING* — Price List (₱)\n\n- Ultraformer MP2 7D HIFU\n  • Cheeks & Jaw — 1,588\n  • Double Chin & Neck — 1,588\n  • Full Face — 1,888\n  • Full Face & Neck — 2,888\n  • Bra Line / Love Handle — 2,888\n  • Tummy / Arms / Legs — 3,488\n\n- Thermagic RF Tightening — 2,999\n- ExiSlim Body Contouring — 1,999`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_HIFU" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Slimming ─────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_SLIMMING" || /\b(slimming|fat dissolve|slim)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Slimming Treatment", serviceCategory: "SLIMMING" });
+    upsertClient({ psid, service: "Slimming Treatment", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `⚡ *SLIMMING TREATMENTS* — Price List (₱)\n\n- Lemon Bottle Fat Dissolve — 567/mL\n- Mesolipo — 1,099/area\n- ExiSlim Body Contouring — 1,999\n\nTargeted areas: Double chin, arms, tummy, love handles, thighs 💕`,
+      [
+        { title: "🍋 Lemon Bottle",     payload: "INTENT_LEMON_BOTTLE" },
+        { title: "💉 Mesolipo",         payload: "INTENT_MESOLIPO" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Lemon Bottle ─────────────────────────────────────────────────────────────
+  if (payload === "INTENT_LEMON_BOTTLE" || /\b(lemon bottle)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Lemon Bottle Fat Dissolve", serviceCategory: "LEMON_BOTTLE" });
+    upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `🍋 *LEMON BOTTLE FAT DISSOLVE* — Price List (₱)\n\n- Promo Rate: ₱567/mL\n\nFast-acting fat dissolve injection made with Riboflavin (B2), Bromelain, and Lecithin. Targets double chin, arms, tummy, love handles, and thighs.\n\n✅ Visible results in 1–2 sessions\n✅ Minimal swelling, zero downtime`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_LEMON_BOTTLE" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Mesolipo ─────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_MESOLIPO" || /\b(mesolipo)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Mesolipo", serviceCategory: "MESOLIPO" });
+    upsertClient({ psid, service: "Mesolipo", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `✨ *MESOLIPO* — Price List (₱)\n\n- Starting at ₱1,099/area\n\nPrecise fat-dissolving cocktail injected into targeted pockets. Perfect for cheeks, jaw, double chin, arms, bra line, love handles, tummy, and thighs.\n\n✅ Visible contouring in 2–4 weeks\n✅ Non-surgical, minimal downtime`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_MESOLIPO" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── IV Drip ──────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_IV_DRIP" || /\b(iv drip|gluta drip|glutathione drip|vitamin c drip|immune booster)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "IV Drip", serviceCategory: "IV_DRIP" });
+    upsertClient({ psid, service: "IV Drip", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `💉 *IV DRIP* — Price List (₱)\n\n- Bella Drip (Glutathione) — 799\n- Celestial Drip (High-dose Gluta) — 1,299\n- Snow White Drip — 1,499\n- Goddess Drip (Premium) — 1,799\n- Immune Booster — 599\n- Vitamin C IV — 499\n\n✨ Buy 10 sessions, get 4 FREE (14 total)!`,
+      [
+        { title: "📅 Book This",              payload: "BOOK_IV_DRIP" },
+        { title: "⚠️ Safety Check First",    payload: "SAFETY_INJECTABLES" },
+        { title: "💆 Other Services",         payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",        payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Warts Removal ────────────────────────────────────────────────────────────
+  if (payload === "INTENT_WARTS" || /\b(warts|warts removal)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Warts Removal", serviceCategory: "WARTS" });
+    upsertClient({ psid, service: "Warts Removal", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `🔬 *WARTS REMOVAL* — Price List (₱)\n\n- Small Warts (1–5 pcs) — 299\n- Medium Warts (6–15 pcs) — 499\n- Large/Multiple Warts — 799\n- Body Area Package — 999\n\n✅ Quick procedure, minimal downtime\n✅ Safe and effective`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_WARTS" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
     return;
   }
 
@@ -702,14 +1053,25 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     return;
   }
 
-  // Injectables / Gluta menu
-  if (payload === "INTENT_INJECTABLES" || /\b(injectable|injection|gluta|iv drip|drip|fat dissolve)\b/i.test(text)) {
-    setSession(psid, { step: "choosing_intent", intent: "injectables" });
+  // ── Injectables / Gluta ──────────────────────────────────────────────────────
+  if (payload === "SAFETY_INJECTABLES" || payload === "SCREENING_GLUTA") {
+    await startSafetyScreening(psid, "IV Drip");
+    return;
+  }
+
+  if (payload === "INTENT_INJECTABLES" || /\b(injectable|injection|botox|filler|gluta)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "Injectables", serviceCategory: "INJECTABLES" });
+    upsertClient({ psid, service: "Injectables", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      "Here are our injectable and advanced treatments 💉 Which are you interested in?",
-      INJECTABLES_QUICK_REPLIES,
-      1000,
+      `💉 *INJECTABLES & GLUTA* — Price List (₱)\n\n- Glutathione IV Drip — 799\n- Botox (per unit) — 199\n- Fillers (per syringe) — 8,999\n- PRP Treatment — 3,999\n\n⚠️ Safety screening required before booking injectable treatments.`,
+      [
+        { title: "📅 Book This",              payload: "BOOK_INJECTABLES" },
+        { title: "⚠️ Safety Check First",    payload: "SAFETY_INJECTABLES" },
+        { title: "💆 Other Services",         payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",        payload: "INTENT_STAFF" },
+      ],
+      800,
     );
     return;
   }
