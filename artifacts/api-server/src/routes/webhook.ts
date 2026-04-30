@@ -47,68 +47,55 @@ router.get("/", (req: Request, res: Response) => {
 // POST /webhook — receive messages (Messenger + Instagram)
 router.post("/", (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
-
-  // ISSUE 4: robust object/channel detection
   const object = body["object"] as string | undefined;
-  const channel: "messenger" | "instagram" =
-    object === "instagram" ? "instagram" : "messenger";
 
   const entries = (body["entry"] as Record<string, unknown>[]) || [];
 
-  // ISSUE 5: raw webhook logging before any processing
   logger.info(
     {
       object,
-      entryCount: entries.length,
-      firstEntry: JSON.stringify(entries[0]).slice(0, 500),
+      body: JSON.stringify(body).slice(0, 1000),
     },
-    "RAW WEBHOOK EVENT RECEIVED",
+    "RAW WEBHOOK EVENT",
   );
 
-  if (object !== "page" && object !== "instagram") {
+  // Accept page, instagram, AND any other object type — reject only if missing
+  if (!object) {
     res.sendStatus(404);
     return;
   }
 
-  // Acknowledge immediately — Facebook requires 200 within 20s
+  // Always acknowledge immediately — Facebook requires 200 within 20s
   res.sendStatus(200);
 
-  // ISSUE 4: per-entry channel detection + normal messaging loop
-  for (const entry of entries) {
-    const entryChannel: "messenger" | "instagram" =
-      entry["instagram_business_account"] !== undefined ? "instagram" : channel;
+  const channel: "messenger" | "instagram" =
+    object === "instagram" ? "instagram" : "messenger";
 
+  for (const entry of entries) {
+    // Handle regular messages
     const messaging = (entry["messaging"] as Record<string, unknown>[]) || [];
     for (const event of messaging) {
-      processEvent(event, entryChannel).catch((err) => {
-        logger.error({ err }, "Error processing messaging event");
+      processEvent(event, channel).catch((err) => {
+        logger.error({ err, event }, "Error processing event");
       });
     }
 
-    // ISSUE 1: ad referral messages — some ad clicks arrive with referral at
-    // the messaging-event level but no text; ensure they're always processed
-    for (const event of messaging) {
-      const referral = event["referral"] as Record<string, unknown> | undefined;
-      const adId = referral?.["ad_id"] as string | undefined;
-      if (adId) {
-        logger.info({ adId }, "Ad referral message detected (secondary check)");
-      }
+    // Handle standby channel (Handover Protocol — secondary receiver)
+    const standbyChannel = (entry["standby"] as Record<string, unknown>[]) || [];
+    for (const event of standbyChannel) {
+      processEvent(event, channel).catch((err) => {
+        logger.error({ err }, "Error processing standby event");
+      });
     }
 
-    // Also handle top-level entry referrals (some ad formats use this structure)
-    const entryReferral = entry["referral"] as Record<string, unknown> | undefined;
-    if (entryReferral?.["ad_id"]) {
-      const adId = entryReferral["ad_id"] as string;
-      logger.info({ adId }, "Top-level entry ad referral detected");
-      // Build a synthetic event so processEvent can handle it
-      const sender = (entry["sender"] as { id: string } | undefined) ?? (entry["id"] ? { id: entry["id"] as string } : undefined);
-      if (sender?.id) {
-        const syntheticEvent: Record<string, unknown> = {
-          sender,
-          referral: entryReferral,
-        };
-        processEvent(syntheticEvent, entryChannel).catch((err) => {
-          logger.error({ err }, "Error processing top-level ad referral event");
+    // Handle changes (comments, reactions, Instagram DMs via changes array)
+    const changes = (entry["changes"] as Record<string, unknown>[]) || [];
+    for (const change of changes) {
+      const field = change["field"] as string;
+      if (field === "messages") {
+        const value = change["value"] as Record<string, unknown>;
+        processEvent(value, channel).catch((err) => {
+          logger.error({ err }, "Error processing change event");
         });
       }
     }
@@ -119,87 +106,77 @@ async function processEvent(
   event: Record<string, unknown>,
   channel: "messenger" | "instagram" = "messenger",
 ): Promise<void> {
-  // ISSUE 3: wrap entire function body in try-catch
   try {
-    const sender = event["sender"] as { id: string } | undefined;
-    if (!sender?.id) return;
+    // Get sender ID from multiple possible locations
+    const sender = (event["sender"] ?? event["from"]) as
+      | { id: string }
+      | undefined;
+
+    if (!sender?.id) {
+      logger.warn({ event: JSON.stringify(event).slice(0, 300) }, "No sender ID found — skipping");
+      return;
+    }
 
     const psid = sender.id;
 
-    // Read delivery / read receipts — ignore
+    // Ignore delivery and read receipts
     if (event["delivery"] || event["read"]) return;
 
     const message = event["message"] as Record<string, unknown> | undefined;
     const postback = event["postback"] as
       | { payload?: string; title?: string }
       | undefined;
+    const referral = event["referral"] as Record<string, unknown> | undefined;
 
-    // Detect ad reply context — present on referral events AND messages after clicking an ad
-    const referral = (event["referral"] ?? message?.["referral"]) as
-      | Record<string, unknown>
-      | undefined;
-    const adId = referral?.["ad_id"] as string | undefined;
-
-    // Allow through if it's a regular message/postback OR an ad referral open-thread event
-    if (!message && !postback && !adId) return;
-
-    // Echo from the page itself — ignore
+    // Ignore page's own echoes
     if (message?.["is_echo"]) return;
 
-    const text = (message?.["text"] as string | undefined)?.trim() ?? "";
+    const text = (
+      (message?.["text"] as string | undefined) ??
+      (event["text"] as string | undefined) ??
+      ""
+    ).trim();
+
     const quickReplyPayload = (
       message?.["quick_reply"] as { payload?: string } | undefined
     )?.payload;
     const postbackPayload = postback?.payload;
     const payload = quickReplyPayload ?? postbackPayload;
+    const adId = referral?.["ad_id"] as string | undefined;
 
     logger.info({ psid, channel, text, payload, adId }, "Processing message");
 
-    // Persist channel in session so all send functions know which token to use
+    // Persist session channel
     setSession(psid, { channel });
 
-    // Fire-and-forget DB logging
-    const inboundContent =
-      text || payload || (adId ? "(ad reply)" : "(postback)");
+    // Log and upsert client regardless of message type
+    const inboundContent = text || payload || (adId ? "(ad click)" : "(unknown)");
     const channelTag = channel === "instagram" ? "[IG] " : "";
+
     logMessage(psid, "inbound", channelTag + inboundContent).catch((err) =>
-      logger.error({ err, psid }, "Failed to log inbound message"),
+      logger.error({ err, psid }, "Failed to log message"),
     );
 
-    if (adId) {
-      logger.info({ psid, adId }, "Message from ad reply");
-      upsertClient({
-        psid,
-        lastMessage: inboundContent,
-        status: "inquiry",
-        channel,
-        leadSource: "facebook_ad",
-      }).catch((err) =>
-        logger.error({ err, psid }, "Failed to upsert ad-reply client"),
-      );
-    } else {
-      upsertClient({
-        psid,
-        lastMessage: inboundContent,
-        status: "inquiry",
-        channel,
-      }).catch((err) =>
-        logger.error({ err, psid }, "Failed to upsert client"),
-      );
-    }
+    upsertClient({
+      psid,
+      lastMessage: inboundContent,
+      status: "inquiry",
+      channel,
+      ...(adId ? { leadSource: "facebook_ad" } : {}),
+    }).catch((err) => logger.error({ err, psid }, "Failed to upsert client"));
 
+    // Get profile name in background
     getProfileName(psid)
       .then((name) => {
         if (name) {
-          upsertClient({ psid, name, channel }).catch((err) =>
-            logger.error({ err, psid }, "Failed to save profile name"),
-          );
+          upsertClient({ psid, name, channel }).catch(() => {});
         }
       })
       .catch(() => {});
 
-    // ISSUE 2: empty ad referral — treat as greeting
-    if (!text && !payload && referral?.["ad_id"]) {
+    // If no text and no payload (pure ad click / empty referral) → show welcome
+    if (!text && !payload) {
+      logger.info({ psid, adId }, "Empty message/ad click — showing welcome");
       setSession(psid, { step: "choosing_intent" });
       await sendWithDelay(psid, randomPick(WELCOME_MESSAGES), 800);
       await sendWithDelayAndQuickReplies(
@@ -213,7 +190,7 @@ async function processEvent(
 
     const session = getSession(psid);
 
-    // New conversation — show welcome
+    // New conversation — show welcome for greetings
     if (session.step === "idle" && !payload) {
       const intent = detectIntent(text);
       if (!intent || intent === "greeting") {
@@ -229,7 +206,6 @@ async function processEvent(
         logger.info({ psid }, "Welcome flow complete");
         return;
       }
-      // If they typed something specific right away (e.g. "book" or "facial"), handle it
       setSession(psid, { step: "choosing_intent" });
     }
 
@@ -237,12 +213,10 @@ async function processEvent(
     await handleBookingFlow(psid, text, payload);
     logger.info({ psid }, "Booking flow step complete");
   } catch (err) {
-    // ISSUE 3: catch all unexpected crashes and send a fallback reply
-    const psid = (event["sender"] as { id?: string } | undefined)?.id ?? "unknown";
     logger.error(
       {
         err,
-        psid,
+        psid: (event["sender"] as { id?: string } | undefined)?.id ?? "unknown",
         text: (event["message"] as Record<string, unknown> | undefined)?.["text"],
         payload: (event["postback"] as { payload?: string } | undefined)?.payload,
         channel,
@@ -250,16 +224,20 @@ async function processEvent(
       "CRITICAL: processEvent crashed",
     );
 
-    try {
-      if (psid !== "unknown") {
+    // Send fallback so client always gets a response
+    const fallbackId = (
+      (event["sender"] ?? event["from"]) as { id?: string } | undefined
+    )?.id;
+    if (fallbackId) {
+      try {
         await sendWithDelay(
-          psid,
+          fallbackId,
           "Hi! 💕 Sorry for the delay. How can we help you today?",
           500,
         );
+      } catch (sendErr) {
+        logger.error({ sendErr }, "Fallback message also failed");
       }
-    } catch (sendErr) {
-      logger.error({ sendErr }, "Failed to send fallback message");
     }
   }
 }

@@ -36,6 +36,7 @@ import {
 import { logger } from "../lib/logger";
 import { upsertClient } from "../services/clientService";
 import { sendTelegramAlert } from "../services/telegramService";
+import { analyzeMessage } from "../services/aiService";
 
 const TALK_TO_STAFF_QR = [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }];
 
@@ -176,6 +177,61 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     );
     return;
   }
+
+  // ── AI analysis — only for free-text messages outside active booking steps ──
+  const activeSteps = new Set([
+    "entering_booking_form",
+    "awaiting_missing_field",
+    "final_confirming",
+    "safety_screening",
+  ]);
+
+  if (text && !payload && !activeSteps.has(session.step ?? "")) {
+    const analysis = await analyzeMessage(text, {
+      clientName: session.name,
+      currentStep: session.step,
+    });
+
+    if (analysis) {
+      if (
+        analysis.intent === "inquiry_price" ||
+        analysis.intent === "inquiry_service" ||
+        analysis.intent === "unknown"
+      ) {
+        await sendWithDelay(psid, analysis.response, 800);
+        if (analysis.shouldBook) {
+          await sendWithDelayAndQuickReplies(
+            psid,
+            "Would you like to book an appointment? 📅",
+            [
+              { title: "📅 Book Now", payload: "INTENT_BOOK" },
+              { title: "💆 View Services", payload: "INTENT_FACIALS" },
+              { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+            ],
+            1000,
+          );
+        }
+        return;
+      }
+
+      if (analysis.intent === "greeting") {
+        await sendWithDelay(psid, analysis.response, 800);
+        await sendWithDelayAndQuickReplies(
+          psid,
+          INTENT_MENU_TEXT,
+          INTENT_QUICK_REPLIES,
+          1000,
+        );
+        return;
+      }
+
+      // booking intent — fall through to existing booking flow below
+      if (analysis.intent === "booking" || analysis.shouldBook) {
+        setSession(psid, { step: "choosing_intent" });
+      }
+    }
+  }
+  // ── End AI block ─────────────────────────────────────────────────────────────
 
   logger.info({ psid, step: session.step, text, payload }, "Booking flow step");
 
