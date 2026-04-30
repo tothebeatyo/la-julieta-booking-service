@@ -231,8 +231,11 @@ router.patch("/clients/:psid/status", authMiddleware as unknown as (req: Request
 // Call this once to register the Messenger persistent menu
 router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request, res: Response) => void, async (_req: Request, res: Response) => {
   const token = process.env["PAGE_ACCESS_TOKEN"];
+
   if (!token) {
-    res.status(500).json({ error: "PAGE_ACCESS_TOKEN not set" });
+    res.status(500).json({
+      error: "PAGE_ACCESS_TOKEN not set in Replit Secrets",
+    });
     return;
   }
 
@@ -252,17 +255,17 @@ router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request
             type: "nested",
             call_to_actions: [
               { title: "🧖 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
-              { title: "✨ Skin Concerns",     type: "postback", payload: "INTENT_SKIN_CONCERN" },
-              { title: "💎 Whitening",          type: "postback", payload: "INTENT_WHITENING" },
-              { title: "⚡ Slimming",           type: "postback", payload: "INTENT_SLIMMING" },
+              { title: "✨ Skin Concerns",      type: "postback", payload: "INTENT_SKIN_CONCERN" },
+              { title: "💎 Whitening",           type: "postback", payload: "INTENT_WHITENING" },
+              { title: "⚡ Slimming",            type: "postback", payload: "INTENT_SLIMMING" },
             ],
           },
           {
             title: "🎉 Promos & Support",
             type: "nested",
             call_to_actions: [
-              { title: "🎉 View Promos",       type: "postback", payload: "INTENT_PROMOS" },
-              { title: "👩‍⚕️ Talk to Agent",  type: "postback", payload: "INTENT_STAFF" },
+              { title: "🎉 View Promos",      type: "postback", payload: "INTENT_PROMOS" },
+              { title: "👩‍⚕️ Talk to Agent", type: "postback", payload: "INTENT_STAFF" },
             ],
           },
         ],
@@ -271,25 +274,38 @@ router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request
   };
 
   try {
-    const r = await fetch(
-      `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${token}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(menuPayload),
-      }
-    );
-    const data = await r.json() as unknown;
+    logger.info("Setting up persistent menu...");
+
+    const url = `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${token}`;
+
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(menuPayload),
+    });
+
+    const data = await r.json() as Record<string, unknown>;
+
     if (!r.ok) {
-      logger.warn({ data }, "Persistent menu setup failed");
-      res.status(r.status).json({ error: "Meta API error", detail: data });
-    } else {
-      logger.info("Persistent menu set up successfully");
-      res.json({ ok: true, result: data });
+      logger.error({ data, status: r.status }, "Persistent menu setup failed");
+      res.status(r.status).json({
+        error: "Facebook API rejected the menu",
+        status: r.status,
+        detail: data,
+        tip: "Check if PAGE_ACCESS_TOKEN has pages_messaging permission",
+      });
+      return;
     }
+
+    logger.info({ data }, "Persistent menu set up successfully");
+    res.json({ ok: true, result: data });
+
   } catch (err) {
     logger.error({ err }, "Error setting up persistent menu");
-    res.status(500).json({ error: "Failed to call Meta API" });
+    res.status(500).json({
+      error: "Failed to call Facebook API",
+      detail: String(err),
+    });
   }
 });
 
