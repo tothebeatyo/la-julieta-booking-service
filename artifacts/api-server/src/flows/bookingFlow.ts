@@ -29,10 +29,8 @@ import {
   SKIN_CONCERN_ANTIAGING,
   SKIN_CONCERN_SENSITIVE,
   SAFETY_SCREENING_INTRO,
-  SAFETY_QUESTIONS,
   SAFETY_FAIL_MESSAGE,
   SAFETY_PASS_MESSAGE,
-  YES_NO_QUICK_REPLIES,
   EMAIL_COLLECTION_MESSAGE,
   SCHEDULE_CLOSED_MESSAGE,
   validateSchedule,
@@ -278,6 +276,25 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
 
 // ─── Safety Screening ─────────────────────────────────────────────────────────
 
+const SAFETY_FLAG_NAMES = [
+  "pregnant",
+  "injection_allergy",
+  "blood_disorder",
+  "allergic_reaction",
+  "medical_treatment",
+];
+
+const SAFETY_CLARIFICATION =
+  `Please answer each question separately 😊\n\nSend 5 lines like:\nNo\nNo\nNo\nNo\nNo`;
+
+function isYesAnswer(line: string): boolean {
+  return /^(yes|y|oo|opo|yep|yup|yeah|oo nga|meron|mayroon|may|true|positive|tama)\b/i.test(line.trim());
+}
+
+function isNoAnswer(line: string): boolean {
+  return /^(no|n|nope|nah|wala|hindi|negative|false|hindi naman|wala naman)\b/i.test(line.trim());
+}
+
 async function startSafetyScreening(psid: string, pendingService: string): Promise<void> {
   setSession(psid, {
     step: "safety_screening",
@@ -285,79 +302,99 @@ async function startSafetyScreening(psid: string, pendingService: string): Promi
     safetyFlags: [],
     pendingService,
   });
-  await sendWithDelay(psid, SAFETY_SCREENING_INTRO, 800);
-  await delay(600);
-  await sendWithDelayAndQuickReplies(
-    psid,
-    `Question 1 of 5:\n${SAFETY_QUESTIONS[0]}`,
-    YES_NO_QUICK_REPLIES,
-    1000,
-  );
+  await sendWithDelayAndQuickReplies(psid, SAFETY_SCREENING_INTRO, TALK_TO_STAFF_QR, 800);
 }
 
 async function handleSafetyScreening(psid: string, text: string, payload?: string): Promise<void> {
   const session = getSession(psid);
-  const step = session.screeningStep ?? 0;
-  const flags = session.safetyFlags ?? [];
 
-  const isYes =
-    payload === "SCREENING_YES" ||
-    /\b(yes|oo|opo|meron|mayroon|may|pregnant|positive|tama|true)\b/i.test(text);
+  // Legacy quick-reply fast-path (SCREENING_YES from old flow)
+  if (payload === "SCREENING_YES") {
+    await triggerSafetyFail(psid, ["unknown"]);
+    return;
+  }
 
-  const flagNames = ["pregnant", "breastfeeding", "injection_allergy", "medication", "medical_condition"];
+  // Split into non-empty lines
+  const lines = text
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
 
-  if (isYes) {
-    // Any YES → fail immediately
-    const newFlag = flagNames[step] ?? "unknown";
-    const allFlags = [...flags, newFlag];
-    upsertClient({
-      psid,
-      safetyFlags: allFlags.join(","),
-      leadStatus: "safety_flagged",
-      status: "needs_followup",
-    }).catch(() => {});
+  // Single word/line — ask for clarification (unless it's clearly "yes" = immediate fail)
+  if (lines.length < 5) {
+    if (lines.length === 1 && isYesAnswer(lines[0])) {
+      await triggerSafetyFail(psid, ["unknown"]);
+      return;
+    }
+    await sendWithDelayAndQuickReplies(psid, SAFETY_CLARIFICATION, TALK_TO_STAFF_QR, 800);
+    return;
+  }
 
-    await sendWithDelay(psid, SAFETY_FAIL_MESSAGE, 1200);
+  // Map first 5 lines to flag names
+  const yesFlags: string[] = [];
+  let hasUnrecognized = false;
+
+  for (let i = 0; i < 5; i++) {
+    const line = lines[i];
+    if (isYesAnswer(line)) {
+      yesFlags.push(SAFETY_FLAG_NAMES[i] ?? "unknown");
+    } else if (!isNoAnswer(line)) {
+      hasUnrecognized = true;
+    }
+  }
+
+  // Any YES → fail with collected flags
+  if (yesFlags.length > 0) {
+    await triggerSafetyFail(psid, yesFlags);
+    return;
+  }
+
+  // Some lines aren't recognizable yes/no → ask to redo
+  if (hasUnrecognized) {
     await sendWithDelayAndQuickReplies(
       psid,
-      "Would you like to explore our facial options instead? 💕",
-      [
-        { title: "💆 Facial Treatments", payload: "INTENT_FACIALS" },
-        { title: "📅 Book Consultation", payload: "INTENT_BOOK" },
-        { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
-      ],
-      1000,
+      `Please reply Yes or No for each question 😊\n\nFor example:\nNo\nNo\nNo\nNo\nNo`,
+      TALK_TO_STAFF_QR,
+      800,
     );
-    setSession(psid, { step: "choosing_intent", screeningStep: 0, safetyFlags: allFlags });
     return;
   }
 
-  // NO — move to next question
-  const nextStep = step + 1;
+  // All 5 are clearly No → cleared
+  upsertClient({ psid, safetyFlags: "none", leadStatus: "injectable_cleared" }).catch(() => {});
+  const pendingService = session.pendingService ?? "IV Drip";
+  await sendWithDelay(psid, SAFETY_PASS_MESSAGE, 1000);
+  await delay(400);
+  setSession(psid, {
+    step: "awaiting_book_decision",
+    service: pendingService,
+    screeningStep: 0,
+    safetyFlags: [],
+    screeningPassed: true,
+  });
+  await sendPricingAndPromos(psid, pendingService);
+}
 
-  if (nextStep >= SAFETY_QUESTIONS.length) {
-    // All clear — proceed to recommend injectable service
-    upsertClient({
-      psid,
-      safetyFlags: "none",
-      leadStatus: "injectable_cleared",
-    }).catch(() => {});
+async function triggerSafetyFail(psid: string, flags: string[]): Promise<void> {
+  upsertClient({
+    psid,
+    safetyFlags: flags.join(","),
+    leadStatus: "safety_flagged",
+    status: "needs_followup",
+  }).catch(() => {});
 
-    const pendingService = session.pendingService ?? "IV Drip";
-    await sendWithDelay(psid, SAFETY_PASS_MESSAGE, 1000);
-    await delay(400);
-    setSession(psid, { step: "awaiting_book_decision", service: pendingService, screeningStep: 0, safetyFlags: [], screeningPassed: true });
-    await sendPricingAndPromos(psid, pendingService);
-    return;
-  }
-
-  setSession(psid, { screeningStep: nextStep, safetyFlags: flags });
+  await sendWithDelay(psid, SAFETY_FAIL_MESSAGE, 1200);
   await sendWithDelayAndQuickReplies(
     psid,
-    `Question ${nextStep + 1} of 5:\n${SAFETY_QUESTIONS[nextStep]}`,
-    YES_NO_QUICK_REPLIES,
+    "Would you like to explore our facial options instead? 💕",
+    [
+      { title: "💆 Facial Treatments", payload: "INTENT_FACIALS" },
+      { title: "📅 Book Consultation", payload: "INTENT_BOOK" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
     1000,
   );
+  setSession(psid, { step: "choosing_intent", screeningStep: 0, safetyFlags: flags });
 }
 
 // ─── Skin Concerns Flow ───────────────────────────────────────────────────────

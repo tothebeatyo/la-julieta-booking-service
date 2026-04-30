@@ -262,14 +262,22 @@ Please let our aestheticians know about any known allergies or reactions before 
 
 A consultation is the safest first step for sensitive skin. Our team will guide you every step of the way 🌸`;
 
-export const SAFETY_SCREENING_INTRO = `Before we recommend injectable treatments, may I ask a few quick safety questions? This is for your wellbeing 💖 It only takes a moment.`;
+export const SAFETY_SCREENING_INTRO =
+  `Before we recommend injectable treatments, I need to ask a few quick safety questions for your wellbeing 💕\n\n` +
+  `Please reply with Yes or No for each question:\n\n` +
+  `- Are you currently pregnant?\n` +
+  `- Do you have any known allergies to injections?\n` +
+  `- Do you have any blood disorders or take blood thinners?\n` +
+  `- Have you had any severe allergic reactions before?\n` +
+  `- Are you currently under any medical treatment?\n\n` +
+  `Just reply like this:\nNo\nNo\nNo\nNo\nNo`;
 
 export const SAFETY_QUESTIONS = [
-  "Are you currently pregnant? 🤰",
-  "Are you breastfeeding or currently lactating? 🍼",
-  "Do you have any known allergy to injections or needles? 💉",
-  "Are you currently taking any medication (prescription or otherwise)?",
-  "Do you have any existing medical condition we should know about? (e.g. heart condition, diabetes, autoimmune, etc.)",
+  "Are you currently pregnant?",
+  "Do you have any known allergies to injections?",
+  "Do you have any blood disorders or take blood thinners?",
+  "Have you had any severe allergic reactions before?",
+  "Are you currently under any medical treatment?",
 ];
 
 export const SAFETY_FAIL_MESSAGE =
