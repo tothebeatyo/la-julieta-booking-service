@@ -212,15 +212,80 @@ function LoginScreen({ onLogin }: { onLogin: (token: string) => void }) {
 }
 
 // ─── Message drawer ───────────────────────────────────────────────────────────
+function formatTimestamp(ts: string) {
+  return new Date(ts).toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function getManilaDateKey(ts: string) {
+  return new Date(ts).toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+}
+
+function formatDividerDate(ts: string) {
+  return new Date(ts).toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function MessageDrawer({ client, token, onClose }: { client: Client; token: string; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Reset state immediately so stale messages never flash when switching clients
+    setMessages([]);
+    setLoading(true);
     apiGet<{ messages: Message[] }>(`/clients/${client.psid}/messages`, token)
       .then(d => setMessages(d.messages))
       .finally(() => setLoading(false));
   }, [client.psid, token]);
+
+  // Build message list with date dividers inserted between day groups
+  const renderedMessages = () => {
+    const nodes: JSX.Element[] = [];
+    let lastDateKey = "";
+
+    for (const msg of messages) {
+      const dateKey = msg.created_at ? getManilaDateKey(msg.created_at) : "";
+
+      if (dateKey && dateKey !== lastDateKey) {
+        lastDateKey = dateKey;
+        nodes.push(
+          <div key={`div-${dateKey}`} className="flex items-center gap-3 py-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground font-medium shrink-0">
+              {formatDividerDate(msg.created_at)}
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+        );
+      }
+
+      const ts = msg.created_at ? formatTimestamp(msg.created_at) : "Unknown time";
+      const isOut = msg.direction === "outbound";
+
+      nodes.push(
+        <div key={msg.id} className={`flex flex-col ${isOut ? "items-end" : "items-start"}`}>
+          <div className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${isOut ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary text-foreground rounded-bl-sm"}`}>
+            {msg.content}
+          </div>
+          <span className={`text-xs text-gray-400 mt-0.5 px-1 ${isOut ? "text-right" : "text-left"}`}>{ts}</span>
+        </div>
+      );
+    }
+
+    return nodes;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex justify-end" onClick={onClose}>
@@ -237,32 +302,17 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none shrink-0">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {loading && <p className="text-center text-sm text-muted-foreground py-8">Loading…</p>}
-          {!loading && messages.length === 0 && <p className="text-center text-sm text-muted-foreground py-8">No messages recorded yet.</p>}
-          {messages.map(msg => {
-            const ts = msg.created_at
-              ? new Date(msg.created_at).toLocaleString("en-PH", {
-                  timeZone: "Asia/Manila",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
-                  hour12: true,
-                })
-              : "Unknown time";
-            const isOut = msg.direction === "outbound";
-            return (
-              <div key={msg.id} className={`flex flex-col ${isOut ? "items-end" : "items-start"}`}>
-                <div className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${isOut ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-secondary text-foreground rounded-bl-sm"}`}>
-                  {msg.content}
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-0.5 px-1">{ts}</span>
-              </div>
-            );
-          })}
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+          {loading && (
+            <p className="text-center text-sm text-muted-foreground py-8">Loading…</p>
+          )}
+          {!loading && messages.length === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-8">No messages recorded yet.</p>
+          )}
+          {!loading && messages.length > 0 && renderedMessages()}
         </div>
+
         {client.anypluspro_screenshot && (
           <div className="border-t border-border px-5 py-3">
             <a href={`/${client.anypluspro_screenshot}`} target="_blank" rel="noopener noreferrer"
