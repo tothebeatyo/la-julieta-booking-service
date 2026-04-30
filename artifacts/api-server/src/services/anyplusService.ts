@@ -873,7 +873,7 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     // Scope submit button to inside the dialog to avoid matching the header "+ Appointment" button
     const apptModal = page.locator('[role="dialog"]').last();
     await apptModal.locator('button:has-text("Book Appointment")').click({ timeout: 10000 });
-    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
     const finalShot = await ss("11-submitted");
     logger.info("autoBook: booking submitted");
 
