@@ -7,11 +7,6 @@ export type BookingStep =
   | "awaiting_book_decision"
   | "entering_booking_form"
   | "awaiting_missing_field"
-  | "entering_date"
-  | "entering_time"
-  | "entering_name"
-  | "entering_mobile"
-  | "entering_email"
   | "final_confirming"
   | "done";
 

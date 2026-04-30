@@ -7,15 +7,11 @@ import {
 } from "../services/messengerService";
 import { createReservation } from "../services/anyplusService";
 import { getSession, setSession, resetSession } from "./state";
-import { detectService, detectDateKeyword, isExplanationQuery, detectSkinConcern } from "./intentDetector";
+import { detectService, isExplanationQuery, detectSkinConcern } from "./intentDetector";
 import {
   BOOK_START_MESSAGES,
   SERVICES_QUICK_REPLIES,
   PAYLOAD_TO_SERVICE,
-  DATE_PROMPTS,
-  TIME_PROMPTS,
-  NAME_PROMPTS,
-  MOBILE_PROMPTS,
   RETRY_MESSAGES,
   INTENT_QUICK_REPLIES,
   SKIN_CONCERN_QUICK_REPLIES,
@@ -31,9 +27,6 @@ import {
   SAFETY_SCREENING_INTRO,
   SAFETY_FAIL_MESSAGE,
   SAFETY_PASS_MESSAGE,
-  EMAIL_COLLECTION_MESSAGE,
-  SCHEDULE_CLOSED_MESSAGE,
-  validateSchedule,
   getPricelistForService,
   getPromosForService,
   getDescriptionForService,
@@ -236,26 +229,6 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     }
     case "awaiting_missing_field": {
       await handleMissingFieldEntry(psid, text);
-      break;
-    }
-    case "entering_date": {
-      await handleDateEntry(psid, text);
-      break;
-    }
-    case "entering_time": {
-      await handleTimeEntry(psid, text);
-      break;
-    }
-    case "entering_name": {
-      await handleNameEntry(psid, text);
-      break;
-    }
-    case "entering_mobile": {
-      await handleMobileEntry(psid, text);
-      break;
-    }
-    case "entering_email": {
-      await handleEmailEntry(psid, text);
       break;
     }
     case "final_confirming": {
@@ -806,165 +779,14 @@ async function handleServiceChoice(psid: string, text: string, payload?: string)
   }
 }
 
-// ─── Booking Steps ────────────────────────────────────────────────────────────
-
-async function handleDateEntry(psid: string, text: string): Promise<void> {
-  const dateValue = detectDateKeyword(text) || (text.trim().length >= 3 ? text.trim() : null);
-
-  if (dateValue) {
-    // Check if it's Monday (we'll do full schedule check once we have the time too)
-    const scheduleError = validateSchedule(dateValue, "10:00 AM"); // only check day here
-    if (scheduleError && scheduleError === SCHEDULE_CLOSED_MESSAGE) {
-      await sendWithDelayAndQuickReplies(
-        psid,
-        scheduleError,
-        [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }],
-        1200,
-      );
-      return;
-    }
-    setSession(psid, { step: "entering_time", date: dateValue, retryCount: 0 });
-    upsertClient({ psid, bookingDate: dateValue }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${dateValue} — noted! 📅 ${randomPick(TIME_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1200,
-    );
-  } else {
-    const s = getSession(psid);
-    setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${randomPick(RETRY_MESSAGES)}What day are you available? (e.g. 'tomorrow', 'April 25', 'Saturday')\n\nWe're open Tuesday to Sunday only 😊`,
-      TALK_TO_STAFF_QR,
-      1000,
-    );
-  }
-}
-
-async function handleTimeEntry(psid: string, text: string): Promise<void> {
-  const timePattern = /\b(\d{1,2}(:\d{2})?\s*(am|pm|AM|PM)?)\b|(morning|afternoon|evening|umaga|tanghali|hapon|gabi)/i;
-
-  if (timePattern.test(text) || text.trim().length >= 2) {
-    const s = getSession(psid);
-    const timeValue = text.trim();
-
-    // Validate full schedule (date + time)
-    if (s.date) {
-      const scheduleError = validateSchedule(s.date, timeValue);
-      if (scheduleError) {
-        await sendWithDelayAndQuickReplies(
-          psid,
-          scheduleError,
-          [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }],
-          1200,
-        );
-        return;
-      }
-    }
-
-    setSession(psid, { step: "entering_name", time: timeValue, retryCount: 0 });
-    upsertClient({ psid, bookingTime: timeValue }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${timeValue} — perfect! 🕐 ${randomPick(NAME_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1200,
-    );
-  } else {
-    const s = getSession(psid);
-    setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${randomPick(RETRY_MESSAGES)}What time? (e.g. '10am', '2pm', '3:30 PM')\n\nWe're open 9:00 AM to 6:00 PM 😊`,
-      TALK_TO_STAFF_QR,
-      1000,
-    );
-  }
-}
-
-async function handleNameEntry(psid: string, text: string): Promise<void> {
-  const name = text.trim();
-  if (name.length >= 2 && /[a-zA-ZÀ-ÿ]/.test(name)) {
-    setSession(psid, { step: "entering_mobile", name, retryCount: 0 });
-    upsertClient({ psid, name }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `Hi ${name}! Nice to meet you 😊 ${randomPick(MOBILE_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1200,
-    );
-  } else {
-    const s = getSession(psid);
-    setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${randomPick(RETRY_MESSAGES)}What's your full name?`,
-      TALK_TO_STAFF_QR,
-      1000,
-    );
-  }
-}
-
-async function handleMobileEntry(psid: string, text: string): Promise<void> {
-  const mobile = text.replace(/\s/g, "");
-  const mobilePattern = /^(\+63|0)[0-9]{9,10}$|^\d{7,11}$/;
-
-  if (mobilePattern.test(mobile)) {
-    setSession(psid, { step: "entering_email", mobile, retryCount: 0 });
-    upsertClient({ psid, mobile, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      EMAIL_COLLECTION_MESSAGE,
-      [{ title: "⏭ Skip Email", payload: "SKIP_EMAIL" }],
-      1400,
-    );
-  } else {
-    const s = getSession(psid);
-    setSession(psid, { retryCount: (s.retryCount || 0) + 1 });
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `${randomPick(RETRY_MESSAGES)}What's your mobile number? (e.g. 09171234567)`,
-      TALK_TO_STAFF_QR,
-      1000,
-    );
-  }
-}
-
-async function handleEmailEntry(psid: string, text: string): Promise<void> {
-  const isSkip = /^skip$/i.test(text.trim());
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const isValidEmail = emailPattern.test(text.trim());
-
-  const email = isSkip ? undefined : (isValidEmail ? text.trim().toLowerCase() : undefined);
-  const emailConsent = !isSkip && isValidEmail;
-
-  if (!isSkip && !isValidEmail && text.trim().length > 2) {
-    // Looks like they tried to type an email but it's invalid
-    await sendWithDelayAndQuickReplies(
-      psid,
-      "Hmm, that doesn't look like a valid email address 😊 Please enter a valid email or type SKIP.",
-      [{ title: "⏭ Skip Email", payload: "SKIP_EMAIL" }],
-      1000,
-    );
-    return;
-  }
-
-  setSession(psid, { email, emailConsent, retryCount: 0 });
-  upsertClient({ psid, email, emailConsent }).catch(() => {});
-
-  await showFinalConfirmation(psid);
-}
-
 // ─── Booking Form (single-message flow) ──────────────────────────────────────
 
 async function sendBookingFormRequest(psid: string, service: string): Promise<void> {
   await sendWithDelayAndQuickReplies(
     psid,
-    `Great! Let's book your ${service} 💕\n\nPlease reply with the following details:\n\n🔘 Old or New Client: (type Old or New)\n👤 Name:\n📱 Mobile Number:\n💆 Service: ${service}\n📅 Preferred Date:\n🕐 Preferred Time:\n\nJust copy and paste the format above and fill in your details! 😊`,
+    `Great! Let's book your ${service} 💕\n\nPlease send your details:\n\n🔘 Old or New Client:\n👤 Name:\n📱 Mobile Number:\n📅 Preferred Date:\n🕐 Preferred Time:\n\nExample:\n🔘 New\n👤 Maria Santos\n📱 09171234567\n📅 May 2\n🕐 2PM`,
     TALK_TO_STAFF_QR,
-    1000,
+    800,
   );
 }
 

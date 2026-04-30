@@ -1,0 +1,75 @@
+In artifacts/api-server/src/flows/bookingFlow.ts,
+find and completely replace the section that asks 
+for date and time separately.
+
+Search for any of these patterns and remove them:
+- "When are you available?"
+- "What time is best for you?"
+- "You can type the date"
+- "You can say '11am'"
+- Any step that sets session.step to "asking_date" 
+  or "asking_time"
+
+Replace the ENTIRE date/time/name collection flow 
+with a SINGLE message that asks for everything at once.
+
+Find where the booking starts (after service is selected
+or after "Yes, Book Now!" is tapped) and replace 
+whatever comes after with this single message:
+
+await sendWithDelay(psid, 
+`Great! Let's book your ${session.service} 💕
+
+Please send your details:
+
+🔘 Old or New Client:
+👤 Name:
+📱 Mobile Number:
+📅 Preferred Date:
+🕐 Preferred Time:
+
+Example:
+🔘 New
+👤 Maria Santos
+📱 09171234567
+📅 May 2
+🕐 2PM`, 800);
+
+setSession(psid, { step: "collecting_booking_details" });
+
+Then add a new handler for step "collecting_booking_details":
+When client sends a message and session.step === "collecting_booking_details":
+
+1. Parse the message looking for these patterns:
+   - Line with "New" or "Old" → clientType
+   - Line with a name (after 👤 or "Name:") → name
+   - Line with phone number (digits, starts with 09 or +63) → phone
+   - Line with a date (tomorrow, May 2, etc.) → date
+   - Line with a time (2PM, 10am, etc.) → time
+
+2. Confirm back:
+await sendWithDelayAndQuickReplies(psid,
+`Perfect! Here's your booking summary 📋
+
+🔘 ${clientType} Client
+👤 ${name}
+📱 ${phone}
+💆 ${service}
+📅 ${date}
+🕐 ${time}
+
+Shall we confirm this booking?`,
+[
+  { title: "✅ Confirm Booking", payload: "CONFIRM_BOOKING" },
+  { title: "✏️ Edit Details", payload: "EDIT_BOOKING" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }
+], 800);
+
+setSession(psid, { 
+  step: "confirming_booking",
+  name, phone, date, time, clientType 
+});
+
+3. When CONFIRM_BOOKING payload received:
+   → trigger autoBook()
+   → send "⏳ Booking your appointment..."

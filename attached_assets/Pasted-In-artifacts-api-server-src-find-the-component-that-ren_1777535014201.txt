@@ -1,0 +1,85 @@
+In artifacts/api-server/src/,  find the component 
+that renders the chat message bubbles for a client 
+conversation in the admin dashboard.
+
+It might be in any of these locations:
+- src/components/admin/ClientChat.tsx
+- src/components/admin/MessageList.tsx  
+- src/components/ChatHistory.tsx
+- src/pages/admin/ClientDetail.tsx
+
+Search ALL files in src/ for where messages.map() 
+or message.content is rendered.
+
+Once found, make these changes:
+
+1. Add this helper function at the top of the file:
+const formatTimestamp = (ts: string | null | undefined): string => {
+  if (!ts) return "Unknown time";
+  return new Date(ts).toLocaleString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
+2. Find the message bubble JSX — it likely looks like:
+<div className="...">
+  {message.content}
+</div>
+
+Replace it with:
+<div className="flex flex-col">
+  <div className="...">
+    {message.content}
+  </div>
+  <span className={`text-xs text-gray-400 mt-1 ${
+    message.direction === "outbound" ? "text-right" : "text-left"
+  }`}>
+    {formatTimestamp(message.created_at)}
+  </span>
+</div>
+
+3. Also add date dividers between messages 
+   from different days:
+
+const formatDate = (ts: string) => new Date(ts).toLocaleDateString("en-PH", {
+  timeZone: "Asia/Manila",
+  weekday: "long",
+  month: "long", 
+  day: "numeric",
+  year: "numeric"
+});
+
+Before rendering each message, check if the date 
+is different from the previous message:
+{messages.map((msg, index) => {
+  const showDivider = index === 0 || 
+    formatDate(msg.created_at) !== formatDate(messages[index-1].created_at);
+  return (
+    <>
+      {showDivider && (
+        <div className="flex items-center gap-2 my-3">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">
+            {formatDate(msg.created_at)}
+          </span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+      )}
+      {/* existing message bubble */}
+    </>
+  );
+})}
+
+4. Make sure the messages API response includes 
+   created_at — check GET /api/admin/clients/:psid/messages
+   in admin.ts and confirm the SQL query includes 
+   created_at in the SELECT statement.
+   
+   If it says SELECT * it should already include it.
+   If not, add created_at explicitly.
