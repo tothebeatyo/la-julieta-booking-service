@@ -35,7 +35,7 @@ import {
 } from "./responses";
 import { logger } from "../lib/logger";
 import { upsertClient } from "../services/clientService";
-import { sendTelegramAlert } from "../services/telegramService";
+import { sendTelegramAlert, notifyBooking } from "../services/telegramService";
 import { analyzeMessage } from "../services/aiService";
 
 const TALK_TO_STAFF_QR = [{ title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" }];
@@ -1500,15 +1500,31 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
 
   if (isConfirm) {
     const s = getSession(psid);
+    const bookingName    = s.name    ?? "Unknown";
+    const bookingService = s.service ?? "Unknown Service";
+    const bookingDate    = s.date    ?? "Unknown Date";
+    const bookingTime    = s.time    ?? "Unknown Time";
+    const bookingMobile  = s.mobile  ?? "N/A";
 
-    // Notify client we are booking
+    // 1. Notify client we are working on it
     await sendWithDelay(
       psid,
       "⏳ Perfect! We're booking your appointment now, please wait a moment...",
       500,
     );
 
-    // Trigger auto booking with a hard 90-second cap so the user never waits indefinitely
+    // 2. Immediate Telegram alert — fires regardless of AnyPlusPro outcome
+    notifyBooking({
+      name: bookingName,
+      service: bookingService,
+      date: bookingDate,
+      time: bookingTime,
+      status: "pending",
+      psid,
+      note: `📱 ${bookingMobile} | ⏳ Attempting AnyPlusPro auto-booking…`,
+    }).catch((err: unknown) => logger.error({ err }, "Telegram pending notify failed"));
+
+    // 3. Trigger auto booking with a hard 90-second cap
     let bookingResult: { success: boolean; referenceNo?: string; error?: string; screenshotPath?: string };
     try {
       const BOOKING_TIMEOUT_MS = 90_000;
@@ -1539,9 +1555,18 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
     if (bookingResult.success) {
       await sendWithDelay(
         psid,
-        `🎉 You're all set! Your ${s.service} is booked for ${s.date} at ${s.time}. See you at La Julieta Beauty Center! 💕`,
+        `🎉 You're all set! Your ${bookingService} is booked for ${bookingDate} at ${bookingTime}. See you at La Julieta Beauty Center! 💕`,
         800,
       );
+      notifyBooking({
+        name: bookingName,
+        service: bookingService,
+        date: bookingDate,
+        time: bookingTime,
+        status: "success",
+        psid,
+        note: `✅ AnyPlusPro auto-booking succeeded. 📱 ${bookingMobile}${bookingResult.referenceNo ? ` | Ref: ${bookingResult.referenceNo}` : ""}`,
+      }).catch((err: unknown) => logger.error({ err }, "Telegram success notify failed"));
       setSession(psid, { step: "idle" });
     } else {
       await sendWithDelay(
@@ -1549,6 +1574,15 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
         "💕 Thank you! Our team will confirm your appointment shortly. You'll receive a message within 1 hour!",
         800,
       );
+      notifyBooking({
+        name: bookingName,
+        service: bookingService,
+        date: bookingDate,
+        time: bookingTime,
+        status: "failed",
+        psid,
+        note: `⚠️ AnyPlusPro failed. 📱 ${bookingMobile} | ${bookingResult.error ?? "unknown error"}`,
+      }).catch((err: unknown) => logger.error({ err }, "Telegram failed notify failed"));
       resetSession(psid);
     }
 

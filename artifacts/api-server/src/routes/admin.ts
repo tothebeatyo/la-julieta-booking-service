@@ -423,4 +423,26 @@ router.post("/test-anyplus", authMiddleware as any, async (_req: Request, res: R
   }
 });
 
+// POST /api/admin/test-telegram-now
+// Sends a test Telegram notification to verify credentials are correct
+router.post("/test-telegram-now", authMiddleware as unknown as (req: Request, res: Response) => void, async (_req: Request, res: Response) => {
+  try {
+    const { notifyBooking } = await import("../services/telegramService");
+    await notifyBooking({
+      name: "Test Client",
+      service: "Test Facial",
+      date: "May 1",
+      time: "2:00 PM",
+      status: "success",
+      psid: "test-123",
+      note: "🧪 This is a test notification from admin dashboard",
+    });
+    logger.info("Test Telegram notification sent");
+    res.json({ ok: true, message: "✅ Telegram test sent! Check your Telegram for the message." });
+  } catch (err) {
+    logger.error({ err }, "Test Telegram failed");
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;

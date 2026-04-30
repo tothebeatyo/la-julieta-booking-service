@@ -658,6 +658,18 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
               title="Set up Messenger persistent menu">
               {menuSetupStatus === "loading" ? "Setting…" : menuSetupStatus === "ok" ? "Menu Set ✓" : menuSetupStatus === "error" ? "Menu Error ✗" : "Setup Menu"}
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch("/api/admin/test-telegram-now", { method: "POST", headers: authHeaders(token) });
+                  const d = await r.json() as { ok?: boolean; message?: string; error?: string };
+                  alert(r.ok ? `✅ ${d.message ?? "Telegram test sent!"}` : `❌ ${d.error ?? "Failed"}`);
+                } catch (err) { alert(`❌ Error: ${String(err)}`); }
+              }}
+              className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-muted-foreground"
+              title="Send a test Telegram notification">
+              Test Telegram
+            </button>
             <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-foreground transition-colors">Log out</button>
           </div>
         </div>
