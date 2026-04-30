@@ -1051,21 +1051,28 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
       500,
     );
 
-    // Trigger auto booking (awaited — synchronous)
+    // Trigger auto booking with a hard 90-second cap so the user never waits indefinitely
     let bookingResult: { success: boolean; referenceNo?: string; error?: string; screenshotPath?: string };
     try {
-      bookingResult = await createReservation({
-        psid,
-        service: s.service!,
-        date: s.date!,
-        time: s.time!,
-        name: s.name ?? "Client",
-        mobile: s.mobile!,
-        email: s.email,
-        emailConsent: s.emailConsent,
-        concern: s.concern,
-        channel: s.channel,
-      });
+      const BOOKING_TIMEOUT_MS = 90_000;
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Booking automation timed out — will process manually")), BOOKING_TIMEOUT_MS)
+      );
+      bookingResult = await Promise.race([
+        createReservation({
+          psid,
+          service: s.service!,
+          date: s.date!,
+          time: s.time!,
+          name: s.name ?? "Client",
+          mobile: s.mobile!,
+          email: s.email,
+          emailConsent: s.emailConsent,
+          concern: s.concern,
+          channel: s.channel,
+        }),
+        timeoutPromise,
+      ]);
     } catch (err) {
       logger.error({ err, psid }, "AnyPlusPro automation error");
       bookingResult = { success: false, error: err instanceof Error ? err.message : String(err) };

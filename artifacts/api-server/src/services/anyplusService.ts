@@ -162,22 +162,23 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
 
     // ── Step 1: Login ────────────────────────────────────────────────────────
     logger.info("AnyPlusPro: navigating to login page");
-    await page.goto(loginUrl, { waitUntil: "networkidle", timeout: 30000 });
+    await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
+    await page.waitForTimeout(1500); // let JS hydrate
     screenshotPath = await takeScreenshot(page, "01_login_page");
 
     // Fill username/password fields (try common selectors)
-    await page.fill('input[type="email"], input[name="email"], input[name="username"], input[placeholder*="email" i], input[placeholder*="user" i]', username, { timeout: 10000 });
+    await page.fill('input[type="email"], input[name="email"], input[name="username"], input[placeholder*="email" i], input[placeholder*="user" i]', username, { timeout: 8000 });
     await page.fill('input[type="password"]', password, { timeout: 5000 });
     await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")', { timeout: 5000 });
 
-    await page.waitForLoadState("networkidle", { timeout: 20000 });
+    await page.waitForLoadState("load", { timeout: 12000 });
     screenshotPath = await takeScreenshot(page, "02_after_login");
 
     // ── Step 2: Select branch if needed ─────────────────────────────────────
     const branchSelector = page.locator(`text="${branchName}"`, { hasText: branchName });
     if (await branchSelector.isVisible({ timeout: 3000 }).catch(() => false)) {
       await branchSelector.click();
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
       logger.info(`AnyPlusPro: selected branch ${branchName}`);
     }
 
@@ -185,19 +186,19 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     const posLink = page.locator('a:has-text("POS"), nav a:has-text("POS"), a[href*="pos"]').first();
     if (await posLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await posLink.click();
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     }
 
     const apptLink = page.locator('a:has-text("Appointment"), a[href*="appointment"]').first();
     if (await apptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await apptLink.click();
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     }
     screenshotPath = await takeScreenshot(page, "03_appointments_page");
 
     // ── Step 4: Click "Book Appointment" ────────────────────────────────────
     await page.click('button:has-text("Book Appointment"), button:has-text("New Appointment"), button:has-text("Add Appointment"), a:has-text("Book Appointment")', { timeout: 10000 });
-    await page.waitForLoadState("networkidle", { timeout: 10000 });
+    await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     screenshotPath = await takeScreenshot(page, "04_book_appointment_modal");
 
     // ── Step 5: Search patient by mobile ─────────────────────────────────────
@@ -337,8 +338,8 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
 
     // ── Step 10: Submit booking ───────────────────────────────────────────────
     await page.click('button[type="submit"]:has-text("Book"), button:has-text("Book Appointment"), button:has-text("Confirm"), button:has-text("Save Appointment")', { timeout: 10000 });
-    await page.waitForTimeout(3000);
-    await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+    await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     screenshotPath = await takeScreenshot(page, "08_after_submit");
 
     // ── Step 11: Detect success ───────────────────────────────────────────────
