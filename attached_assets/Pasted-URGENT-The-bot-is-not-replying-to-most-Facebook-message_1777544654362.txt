@@ -1,0 +1,164 @@
+URGENT: The bot is not replying to most Facebook 
+messages. Check and fix everything.
+
+STEP 1 — Check if server is running and receiving webhooks
+Add this at the very top of the POST /webhook handler
+in artifacts/api-server/src/routes/webhook.ts:
+
+router.post("/", (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  
+  // Log EVERY incoming webhook immediately
+  logger.info({ 
+    object: body["object"],
+    entryCount: (body["entry"] as any[])?.length,
+    timestamp: new Date().toISOString(),
+    bodySnippet: JSON.stringify(body).slice(0, 500)
+  }, "🔔 WEBHOOK RECEIVED");
+
+  // Always respond 200 immediately
+  res.sendStatus(200);
+
+  // ... rest of code
+
+STEP 2 — Check Replit logs RIGHT NOW
+Look in Replit console for "WEBHOOK RECEIVED" logs.
+If you see NO logs when messages come in, the webhook
+URL is not connected to Facebook properly.
+
+If you DO see logs but no replies, the processEvent
+function is crashing silently.
+
+STEP 3 — Add crash protection to processEvent
+Wrap the ENTIRE processEvent function body in 
+try-catch and send a fallback reply on ANY error:
+
+async function processEvent(
+  event: Record<string, unknown>,
+  channel: "messenger" | "instagram" = "messenger"
+): Promise<void> {
+  const sender = (event["sender"] ?? event["from"]) as { id: string } | undefined;
+  const psid = sender?.id;
+
+  try {
+    if (!psid) return;
+    if (event["delivery"] || event["read"]) return;
+
+    const message = event["message"] as Record<string, unknown> | undefined;
+    const postback = event["postback"] as { payload?: string } | undefined;
+    if (message?.["is_echo"]) return;
+
+    const text = ((message?.["text"] as string) ?? "").trim();
+    const quickReplyPayload = (message?.["quick_reply"] as { payload?: string })?.payload;
+    const postbackPayload = postback?.payload;
+    const payload = quickReplyPayload ?? postbackPayload;
+
+    logger.info({ psid, channel, text, payload }, "📨 Processing event");
+
+    // Set channel in session
+    setSession(psid, { channel });
+
+    // Log inbound message
+    const inboundContent = text || payload || "(attachment)";
+    logMessage(psid, "inbound", inboundContent).catch(() => {});
+    upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel }).catch(() => {});
+    getProfileName(psid).then(name => {
+      if (name) upsertClient({ psid, name, channel }).catch(() => {});
+    }).catch(() => {});
+
+    // No text and no payload = show welcome
+    if (!text && !payload) {
+      setSession(psid, { step: "choosing_intent" });
+      await sendWithDelay(psid, randomPick(WELCOME_MESSAGES), 500);
+      await sendWithDelayAndQuickReplies(psid, INTENT_MENU_TEXT, INTENT_QUICK_REPLIES, 800);
+      return;
+    }
+
+    // Route to booking flow
+    await handleBookingFlow(psid, text, payload);
+
+  } catch (err) {
+    logger.error({ err, psid }, "❌ processEvent CRASHED");
+
+    // Always send fallback so client gets a reply
+    if (psid) {
+      try {
+        await sendWithDelay(
+          psid,
+          "Hi! 💕 Thank you for messaging La Julieta Beauty Center! How can we help you today?",
+          500
+        );
+        await sendWithDelayAndQuickReplies(
+          psid,
+          INTENT_MENU_TEXT,
+          INTENT_QUICK_REPLIES,
+          800
+        );
+      } catch (fallbackErr) {
+        logger.error({ fallbackErr, psid }, "❌ Fallback message also failed");
+      }
+    }
+  }
+}
+
+STEP 4 — Check handleBookingFlow for crashes
+In artifacts/api-server/src/flows/bookingFlow.ts,
+wrap the ENTIRE function body in try-catch:
+
+export async function handleBookingFlow(
+  psid: string,
+  text: string,
+  payload?: string
+): Promise<void> {
+  try {
+    // ... all existing code
+  } catch (err) {
+    logger.error({ err, psid, text, payload }, "❌ bookingFlow CRASHED");
+    // Re-throw so processEvent catches it and sends fallback
+    throw err;
+  }
+}
+
+STEP 5 — Check aiService for crashes
+In artifacts/api-server/src/services/aiService.ts,
+make sure analyzeMessage NEVER throws — always returns null on error:
+
+export async function analyzeMessage(...): Promise<AIAnalysis | null> {
+  try {
+    // existing code
+  } catch (err) {
+    logger.error({ err }, "AI analysis failed — returning null");
+    return null; // never throw, always return null
+  }
+}
+
+STEP 6 — Check if ANTHROPIC_API_KEY is set
+In Replit Secrets, verify ANTHROPIC_API_KEY exists.
+If not set, AI analysis returns null and bot should 
+still work with keyword matching.
+
+Add this startup check in index.ts:
+logger.info({
+  hasPageToken: !!process.env["PAGE_ACCESS_TOKEN"],
+  hasVerifyToken: !!process.env["VERIFY_TOKEN"],
+  hasAnthropicKey: !!process.env["ANTHROPIC_API_KEY"],
+  hasAnyplusUser: !!process.env["ANYPLUSPRO_USERNAME"],
+  hasTelegramToken: !!process.env["TELEGRAM_NOTIFY_BOT_TOKEN"],
+}, "🔑 Environment check");
+
+STEP 7 — Check PAGE_ACCESS_TOKEN is valid
+The token might have expired. Test it:
+In Replit shell run:
+curl "https://graph.facebook.com/v19.0/me?access_token=${PAGE_ACCESS_TOKEN}"
+
+If it returns an error, generate a new token from
+Facebook Developer Console.
+
+STEP 8 — Restart server and monitor logs
+After all changes, restart the server and watch
+Replit console while sending test messages.
+Look for:
+✅ "WEBHOOK RECEIVED" — Facebook is calling webhook
+✅ "Processing event" — Bot is processing
+✅ "Booking flow step complete" — Flow completed
+❌ Any "CRASHED" logs — tells us exact error

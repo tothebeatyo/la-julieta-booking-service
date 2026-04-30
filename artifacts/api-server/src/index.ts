@@ -3,6 +3,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initWebSocket } from "./lib/websocket";
 import { pool } from "@workspace/db";
+import { ensureClientsSchema } from "./services/clientService";
 
 const rawPort = process.env["PORT"];
 
@@ -19,6 +20,19 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 async function runStartupDiagnostic(): Promise<void> {
+  // Environment check — critical for debugging bot issues
+  logger.info({
+    hasPageToken:      !!process.env["PAGE_ACCESS_TOKEN"],
+    hasVerifyToken:    !!process.env["VERIFY_TOKEN"],
+    hasAnthropicKey:   !!process.env["ANTHROPIC_API_KEY"],
+    hasAnyplusUser:    !!process.env["ANYPLUSPRO_USERNAME"],
+    hasTelegramToken:  !!process.env["TELEGRAM_BOT_TOKEN"],
+    hasSessionSecret:  !!process.env["SESSION_SECRET"],
+  }, "🔑 Environment check");
+
+  // Fix schema: add UNIQUE constraint on psid, set column defaults, deduplicate rows
+  await ensureClientsSchema();
+
   try {
     const tables = await pool.query(`
       SELECT table_name

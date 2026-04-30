@@ -17,6 +17,72 @@ export type AnyPlusProStatus =
   | "manual_booking_required"
   | "skipped";
 
+export async function ensureClientsSchema(): Promise<void> {
+  try {
+    // Ensure clients table exists with all required columns
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id                    SERIAL PRIMARY KEY,
+        psid                  TEXT NOT NULL UNIQUE,
+        name                  TEXT,
+        mobile                TEXT,
+        email                 TEXT,
+        email_consent         BOOLEAN,
+        notes                 TEXT,
+        status                TEXT NOT NULL DEFAULT 'inquiry',
+        last_message          TEXT,
+        service               TEXT,
+        booking_date          TEXT,
+        booking_time          TEXT,
+        reference_no          TEXT,
+        created_at            TIMESTAMPTZ DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ DEFAULT NOW(),
+        channel               TEXT NOT NULL DEFAULT 'messenger',
+        concern               TEXT,
+        recommended_service   TEXT,
+        safety_flags          TEXT,
+        intent                TEXT,
+        lead_status           TEXT,
+        lead_source           TEXT,
+        anypluspro_status     TEXT,
+        anypluspro_error      TEXT,
+        anypluspro_screenshot TEXT,
+        manually_booked       BOOLEAN DEFAULT FALSE
+      )
+    `);
+
+    // Add UNIQUE constraint on psid if missing (handles existing tables without it)
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'clients'::regclass AND contype = 'u'
+            AND conname = 'clients_psid_unique'
+        ) THEN
+          -- Deduplicate first: keep only the row with the lowest id per psid
+          DELETE FROM clients c1
+          USING clients c2
+          WHERE c1.psid = c2.psid AND c1.id > c2.id;
+
+          ALTER TABLE clients ADD CONSTRAINT clients_psid_unique UNIQUE (psid);
+        END IF;
+      END $$;
+    `);
+
+    // Add DEFAULT values to status/channel if columns exist but lack defaults
+    await pool.query(`
+      ALTER TABLE clients
+        ALTER COLUMN status  SET DEFAULT 'inquiry',
+        ALTER COLUMN channel SET DEFAULT 'messenger'
+    `).catch(() => {}); // ignore if already set
+
+    logger.info("clients schema ensured (UNIQUE on psid, defaults set)");
+  } catch (err) {
+    logger.error({ err }, "ensureClientsSchema failed");
+  }
+}
+
 export async function upsertClient(data: {
   psid: string;
   name?: string;
@@ -42,6 +108,8 @@ export async function upsertClient(data: {
   anyPlusProScreenshot?: string;
 }): Promise<void> {
   try {
+    // COALESCE required NOT NULL fields to safe defaults in the INSERT path
+    // so partial updates (e.g. name-only) never violate NOT NULL constraints
     await pool.query(
       `INSERT INTO clients (
          psid, name, mobile, email, email_consent, notes,
@@ -51,7 +119,13 @@ export async function upsertClient(data: {
          anypluspro_status, anypluspro_error, anypluspro_screenshot,
          updated_at
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW())
+       VALUES (
+         $1,$2,$3,$4,$5,$6,
+         COALESCE($7,'inquiry'), $8,$9,$10,$11,
+         $12, COALESCE($13,'messenger'), $14,$15,
+         $16,$17,$18,$19,$20,$21,$22,
+         NOW()
+       )
        ON CONFLICT (psid) DO UPDATE SET
          name                = COALESCE($2,  clients.name),
          mobile              = COALESCE($3,  clients.mobile),
