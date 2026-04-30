@@ -659,7 +659,18 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     browser = await launchBrowser();
     const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
-    page.setDefaultTimeout(30000);
+    page.setDefaultTimeout(60000);
+    page.setDefaultNavigationTimeout(60000);
+
+    // Block heavy resources to speed up page loads
+    await page.route("**/*", (route) => {
+      const blocked = ["image", "stylesheet", "font", "media"];
+      if (blocked.includes(route.request().resourceType())) {
+        route.abort().catch(() => {});
+      } else {
+        route.continue().catch(() => {});
+      }
+    });
 
     const ssDir = path.resolve(SCREENSHOT_DIR);
     if (!fs.existsSync(ssDir)) fs.mkdirSync(ssDir, { recursive: true });
@@ -670,11 +681,11 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     };
 
     // ── Step 1: Login ─────────────────────────────────────────────────────────
-    await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle", timeout: 30000 });
+    await gotoWithRetry(page, ANYPLUSPRO_URL);
     await page.fill('input[type="email"], input[name="email"]', ANYPLUSPRO_USERNAME, { timeout: 10000 });
     await page.fill('input[type="password"]', ANYPLUSPRO_PASSWORD, { timeout: 5000 });
     await page.click('button[type="submit"], button:has-text("Sign In")', { timeout: 5000 });
-    await page.waitForLoadState("networkidle", { timeout: 20000 });
+    await page.waitForLoadState("domcontentloaded", { timeout: 30000 });
     await ss("01-after-login");
     if (page.url().includes("login")) throw new Error("Login failed — check credentials");
     logger.info("autoBook: login successful");
@@ -683,7 +694,7 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     const apptLink = page.locator('a:has-text("Appointments"), a[href*="appointment"]').first();
     if (await apptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await apptLink.click();
-      await page.waitForLoadState("networkidle", { timeout: 10000 });
+      await page.waitForLoadState("domcontentloaded", { timeout: 15000 }).catch(() => {});
     }
     await ss("02-appointments-page");
     logger.info("autoBook: on appointments page");
