@@ -108,7 +108,7 @@ async function processEvent(event: Record<string, unknown>, channel: "messenger"
   // Tag ad-reply leads with intent "facebook_ad" so they're identifiable in the dashboard
   if (adId) {
     logger.info({ psid, adId }, "Message from ad reply");
-    upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel, intent: "facebook_ad" }).catch((err) =>
+    upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel, leadSource: "facebook_ad" }).catch((err) =>
       logger.error({ err, psid }, "Failed to upsert ad-reply client"),
     );
   } else {

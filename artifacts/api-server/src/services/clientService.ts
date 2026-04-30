@@ -36,6 +36,7 @@ export async function upsertClient(data: {
   safetyFlags?: string;
   intent?: string;
   leadStatus?: string;
+  leadSource?: string;
   anyPlusProStatus?: AnyPlusProStatus;
   anyPlusProError?: string;
   anyPlusProScreenshot?: string;
@@ -46,11 +47,11 @@ export async function upsertClient(data: {
          psid, name, mobile, email, email_consent, notes,
          status, last_message, service, booking_date, booking_time,
          reference_no, channel, concern, recommended_service,
-         safety_flags, intent, lead_status,
+         safety_flags, intent, lead_status, lead_source,
          anypluspro_status, anypluspro_error, anypluspro_screenshot,
          updated_at
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,NOW())
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,NOW())
        ON CONFLICT (psid) DO UPDATE SET
          name                = COALESCE($2,  clients.name),
          mobile              = COALESCE($3,  clients.mobile),
@@ -69,9 +70,10 @@ export async function upsertClient(data: {
          safety_flags        = COALESCE($16, clients.safety_flags),
          intent              = COALESCE($17, clients.intent),
          lead_status         = COALESCE($18, clients.lead_status),
-         anypluspro_status   = COALESCE($19, clients.anypluspro_status),
-         anypluspro_error    = COALESCE($20, clients.anypluspro_error),
-         anypluspro_screenshot = COALESCE($21, clients.anypluspro_screenshot),
+         lead_source         = COALESCE($19, clients.lead_source),
+         anypluspro_status   = COALESCE($20, clients.anypluspro_status),
+         anypluspro_error    = COALESCE($21, clients.anypluspro_error),
+         anypluspro_screenshot = COALESCE($22, clients.anypluspro_screenshot),
          updated_at          = NOW()`,
       [
         data.psid,
@@ -92,6 +94,7 @@ export async function upsertClient(data: {
         data.safetyFlags ?? null,
         data.intent ?? null,
         data.leadStatus ?? null,
+        data.leadSource ?? null,
         data.anyPlusProStatus ?? null,
         data.anyPlusProError ?? null,
         data.anyPlusProScreenshot ?? null,
