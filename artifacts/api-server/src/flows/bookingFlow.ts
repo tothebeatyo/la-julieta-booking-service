@@ -440,6 +440,9 @@ function isNoAnswer(line: string): boolean {
   return /^(no|n|nope|nah|wala|hindi|negative|false|hindi naman|wala naman)\b/i.test(line.trim());
 }
 
+const SAFETY_QUESTIONS_MESSAGE =
+  `Before we proceed with injectables, we need to check a few things for your safety 💕\n\nPlease answer honestly:\n\n- Are you currently pregnant?\n- Do you have any allergy to injections?\n- Do you have blood disorders or take blood thinners?\n- Have you had severe allergic reactions before?\n- Are you currently under medical treatment?\n\nJust reply naturally! For example:\n💬 "Wala" or "None" — if none apply to you\n💬 "Meron" or "Yes" — if any apply to you`;
+
 async function startSafetyScreening(psid: string, pendingService: string): Promise<void> {
   setSession(psid, {
     step: "safety_screening",
@@ -447,77 +450,89 @@ async function startSafetyScreening(psid: string, pendingService: string): Promi
     safetyFlags: [],
     pendingService,
   });
-  await sendWithDelayAndQuickReplies(psid, SAFETY_SCREENING_INTRO, TALK_TO_STAFF_QR, 800);
+  await sendWithDelayAndQuickReplies(psid, SAFETY_QUESTIONS_MESSAGE, TALK_TO_STAFF_QR, 800);
 }
 
 async function handleSafetyScreening(psid: string, text: string, payload?: string): Promise<void> {
   const session = getSession(psid);
+  const pendingService = session.pendingService ?? "IV Drip";
 
-  // Legacy quick-reply fast-path (SCREENING_YES from old flow)
+  // Legacy quick-reply: treat SCREENING_YES as an immediate concern
   if (payload === "SCREENING_YES") {
     await triggerSafetyFail(psid, ["unknown"]);
     return;
   }
 
-  // Split into non-empty lines
-  const lines = text
-    .split(/\r?\n/)
-    .map(l => l.trim())
-    .filter(l => l.length > 0);
+  const msgLower = text.toLowerCase().trim();
 
-  // Single word/line — ask for clarification (unless it's clearly "yes" = immediate fail)
-  if (lines.length < 5) {
-    if (lines.length === 1 && isYesAnswer(lines[0])) {
-      await triggerSafetyFail(psid, ["unknown"]);
-      return;
-    }
-    await sendWithDelayAndQuickReplies(psid, SAFETY_CLARIFICATION, TALK_TO_STAFF_QR, 800);
-    return;
-  }
+  // ── Detect "all clear" — natural language no ─────────────────────────────────
+  const isAllClear =
+    /^(no|nope|none|nothing|wala|all no|all good|none of (the above|them|those)|i don'?t have any|i have none|no to all|no for all|all clear|wala naman|wala po|wala akong|wala akong kahit (ano|isa)|hindi|hindi po|hindi naman|clean|ok lang|okay lang|none po)/.test(msgLower) ||
+    /^(no[\s,]+){2,}/.test(msgLower) ||
+    (
+      !/(yes|oo\b|opo|meron|mayroon|may ako|i (am|have|do)|pregnant|allergy|allergic|blood (disorder|thinner)|medical (treatment|condition))/i.test(msgLower) &&
+      /(no|wala|hindi|nope|none)/i.test(msgLower)
+    );
 
-  // Map first 5 lines to flag names
-  const yesFlags: string[] = [];
-  let hasUnrecognized = false;
+  // ── Detect concern — any affirmative ─────────────────────────────────────────
+  const hasConcern =
+    /(yes|oo\b|opo|meron|mayroon|may ako|i (am|have|do)|pregnant|allergy|allergic|blood (disorder|thinner)|medical (treatment|condition))/i.test(msgLower);
 
-  for (let i = 0; i < 5; i++) {
-    const line = lines[i];
-    if (isYesAnswer(line)) {
-      yesFlags.push(SAFETY_FLAG_NAMES[i] ?? "unknown");
-    } else if (!isNoAnswer(line)) {
-      hasUnrecognized = true;
-    }
-  }
-
-  // Any YES → fail with collected flags
-  if (yesFlags.length > 0) {
-    await triggerSafetyFail(psid, yesFlags);
-    return;
-  }
-
-  // Some lines aren't recognizable yes/no → ask to redo
-  if (hasUnrecognized) {
+  if (isAllClear && !hasConcern) {
+    // All good — proceed to booking form
+    upsertClient({ psid, safetyFlags: "none", leadStatus: "injectable_cleared" }).catch(() => {});
+    setSession(psid, {
+      step: "entering_booking_form",
+      service: pendingService,
+      screeningStep: 0,
+      safetyFlags: [],
+      screeningPassed: true,
+      retryCount: 0,
+    });
     await sendWithDelayAndQuickReplies(
       psid,
-      `Please reply Yes or No for each question 😊\n\nFor example:\nNo\nNo\nNo\nNo\nNo`,
+      `Great news, you're all clear! 🎉 Let's get you booked! 💕\n\nPlease send your details:\n\n⚪ Old or New Client:\n👤 Name:\n📱 Mobile Number:\n📅 Preferred Date:\n🕐 Preferred Time:\n\nExample:\n⚪ New\n👤 Maria Santos\n📱 09171234567\n📅 May 5\n🕐 2PM`,
       TALK_TO_STAFF_QR,
       800,
     );
     return;
   }
 
-  // All 5 are clearly No → cleared
-  upsertClient({ psid, safetyFlags: "none", leadStatus: "injectable_cleared" }).catch(() => {});
-  const pendingService = session.pendingService ?? "IV Drip";
-  await sendWithDelay(psid, SAFETY_PASS_MESSAGE, 1000);
-  await delay(400);
-  setSession(psid, {
-    step: "awaiting_book_decision",
-    service: pendingService,
-    screeningStep: 0,
-    safetyFlags: [],
-    screeningPassed: true,
-  });
-  await sendPricingAndPromos(psid, pendingService);
+  if (hasConcern) {
+    // Has a safety concern — escalate to staff
+    upsertClient({
+      psid,
+      safetyFlags: "flagged",
+      leadStatus: "safety_flagged",
+      status: "needs_followup",
+    }).catch(() => {});
+
+    sendTelegramAlert(
+      `⚠️ <b>SAFETY FLAG — INJECTABLE SCREENING</b>\n\n` +
+      `👤 <b>Name:</b> ${session.name ?? "Unknown"}\n` +
+      `🆔 <b>PSID:</b> ${psid}\n` +
+      `💆 <b>Service:</b> ${pendingService}\n` +
+      `💬 <b>Client reply:</b> ${text.slice(0, 200)}\n` +
+      `📝 <b>Note:</b> Client answered Yes to safety screening — manual consultation needed\n` +
+      `📅 <b>Time:</b> ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}`,
+    ).catch(() => {});
+
+    setSession(psid, { step: "idle", safetyFlags: ["flagged"] });
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "Thank you for letting us know 💕 For your safety, we recommend speaking with our specialist first before proceeding.\n\nOur team will reach out to you shortly! 😊",
+      TALK_TO_STAFF_QR,
+      800,
+    );
+    return;
+  }
+
+  // Unclear — gently guide them to a simple answer
+  await sendWithDelay(
+    psid,
+    "Sorry, I just want to make sure you're safe! 💕\n\nFor the questions above, do you have any of those conditions?\n\nJust reply:\n✅ \"Wala\" or \"None\" — if you don't have any\n⚠️ \"Meron\" or \"Yes\" — if you have at least one",
+    800,
+  );
 }
 
 async function triggerSafetyFail(psid: string, flags: string[]): Promise<void> {
