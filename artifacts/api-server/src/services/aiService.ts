@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger";
 
-const OPENAI_API_KEY = process.env["OPENAI_API_KEY"] ?? "";
+const ANTHROPIC_API_KEY = process.env["ANTHROPIC_API_KEY"] ?? "";
 
 const LA_JULIETA_SYSTEM_PROMPT = `
 You are Juliet, a friendly and professional AI assistant 
