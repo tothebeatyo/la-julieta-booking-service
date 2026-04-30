@@ -55,21 +55,56 @@ export async function getProfileName(psid: string): Promise<string | null> {
 async function callSendAPI(body: object, psid?: string): Promise<void> {
   const token = psid ? tokenForPsid(psid) : PAGE_ACCESS_TOKEN;
   if (!token) {
-    logger.error("No access token available for sending message");
+    logger.error("callSendAPI: No PAGE_ACCESS_TOKEN — cannot send message");
     return;
   }
-  logger.info({ body: JSON.stringify(body).slice(0, 120) }, "Calling Messenger/Instagram API");
-  const response = await fetch(`${GRAPH_API}?access_token=${token}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+
+  const url = `${GRAPH_API}?access_token=<redacted>`;
+  const requestBody = JSON.stringify(body);
+
+  logger.info({ url, requestBody }, "callSendAPI: sending request to Graph API");
+
+  let response: Response;
+  try {
+    response = await fetch(`${GRAPH_API}?access_token=${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody,
+    });
+  } catch (err) {
+    logger.error({ err, url }, "callSendAPI: fetch threw — network error or DNS failure");
+    throw err;
+  }
+
+  const responseText = await response.text();
+
+  logger.info(
+    { url, status: response.status, responseBody: responseText },
+    "callSendAPI: received response from Graph API",
+  );
+
   if (!response.ok) {
-    const text = await response.text();
-    logger.error({ status: response.status, body: text }, "Messenger/Instagram API error");
-  } else {
-    const json = await response.json() as { message_id?: string };
-    logger.info({ message_id: json.message_id }, "Messenger/Instagram API success");
+    let fbMessage = responseText;
+    try {
+      const parsed = JSON.parse(responseText) as { error?: { message?: string; type?: string; code?: number } };
+      if (parsed.error) {
+        fbMessage = `[FB ${parsed.error.code ?? "?"}] ${parsed.error.type ?? ""}: ${parsed.error.message ?? responseText}`;
+      }
+    } catch {
+      // raw text is already captured
+    }
+    logger.error(
+      { url, status: response.status, responseBody: responseText },
+      `callSendAPI: Graph API returned error — ${fbMessage}`,
+    );
+    throw new Error(`Messenger API error (HTTP ${response.status}): ${fbMessage}`);
+  }
+
+  try {
+    const json = JSON.parse(responseText) as { message_id?: string };
+    logger.info({ url, message_id: json.message_id }, "callSendAPI: message delivered successfully");
+  } catch {
+    logger.warn({ url, responseBody: responseText }, "callSendAPI: success status but non-JSON response body");
   }
 }
 
