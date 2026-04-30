@@ -37,61 +37,6 @@ export const INJECTABLES_QUICK_REPLIES = [
   { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
 ];
 
-export const SERVICES_LIST = `Ito po ang full menu namin 💅 (prices in ₱)
-
-💆 𝗙𝗔𝗖𝗜𝗔𝗟𝗦
-• Basic Facial — 299
-• Diamond Peel — 499
-• HydraGlow Facial — 999
-• Oxygeneo 3-in-1 Facial — 1,399
-• Backne Facial — 1,599
-• Underarm Spa — 599
-Add-ons: Omega PDT Led 99 · Hydrating Sheet Mask 99
-
-💉 𝗠𝗜𝗖𝗥𝗢𝗡𝗘𝗘𝗗𝗟𝗜𝗡𝗚
-• Korean BB Glow — 599
-• AcneKléar Microneedling — 1,099
-• PRP Microneedling — 1,399
-• Salmon DNA Microneedling — 1,899
-• Stretch Marks Microneedling — 2,099
-Add-ons: BB Glow Tint 199 · Whitening Stem Cell 299 · Hyaluronic Aqua Stem Cell 299
-
-🔥 𝗟𝗔𝗦𝗘𝗥
-• Skin Rejuvè (nape/elbows/knees) — 799
-• Skin Rejuvè Laser Face — 999
-• Pico Carbon Peel Laser — 999
-• Intense UA Whitening Laser — 899
-• Intense UA Hair Removal Laser — 899
-• Upper / Lower Lips Hair Removal — 599
-
-✨ 𝗗𝗜𝗢𝗗𝗘 𝗛𝗔𝗜𝗥 𝗥𝗘𝗠𝗢𝗩𝗔𝗟
-• Small Area — 499
-• Medium Area — 899
-• Large Area — 1,299
-
-🎯 𝗦𝗞𝗜𝗡 𝗧𝗜𝗚𝗛𝗧𝗘𝗡𝗜𝗡𝗚 / 𝗛𝗜𝗙𝗨
-7D Ultraforma (HIFU): Cheeks/Jaw 1,799 · Double Chin/Neck 1,799 · Full Face 2,499 · Full Face+Chin+Neck 2,999 · Tummy/Love Handle 2,999 · Arms/Thighs 3,999
-Thermagic: Eyes 4,999 · Forehead 3,099 · Cheeks/Chin 6,999 · Double Chin/Neck 6,999 · Full Face 8,999 · Full Face+Neck 12,999
-ExiSlim: Cheeks/Jaw 699 · Double Chin/Neck 699 · Full Face 1,499 · Tummy 2,499 · Arms/Thighs 1,899 · Full Back 2,999
-
-🍋 𝗦𝗟𝗜𝗠𝗠𝗜𝗡𝗚 / 𝗙𝗔𝗧 𝗗𝗜𝗦𝗦𝗢𝗟𝗩𝗘
-Lemon Bottle: Cheeks/Jaw 2,099 · Double Chin 2,099 · Bra Line/Love Handle 3,099 · Arms/Thighs/Tummy 3,999
-Mesolipo: Cheeks/Jaw 1,099 · Double Chin 1,099 · Arms/Bra Line/Thighs 2,099 · Tummy/Love Handle 2,499
-
-💧 𝗜𝗩 𝗗𝗥𝗜𝗣𝗦 (Glutathione & Multivitamins)
-• Immune Booster — 499
-• Premium Bella Drip — 699
-• VIP Celestial Drip — 999
-• Snow White Drip — 1,299
-• Ultimate Goddess Drip — 1,199
-• Ultimate Snow White Drip — 1,599
-Add-ons: Vitamin C 199 · B-Complex 299 · Collagen 399 · Placenta 499 · L-Carnitine 599
-
-🩹 𝗪𝗔𝗥𝗧𝗦 𝗥𝗘𝗠𝗢𝗩𝗔𝗟
-Mild 599 · Moderate 799 · Severe 999
-
-All treatments are done by licensed aestheticians 💖 Ready to book? 😊`;
-
 // ─── Active Promos ────────────────────────────────────────────────────────────
 // Add new promos here. Each one is sent as a separate Messenger message.
 export const ACTIVE_PROMOS: string[] = [
@@ -272,25 +217,11 @@ export const SAFETY_SCREENING_INTRO =
   `- Are you currently under any medical treatment?\n\n` +
   `Just reply like this:\nNo\nNo\nNo\nNo\nNo`;
 
-export const SAFETY_QUESTIONS = [
-  "Are you currently pregnant?",
-  "Do you have any known allergies to injections?",
-  "Do you have any blood disorders or take blood thinners?",
-  "Have you had any severe allergic reactions before?",
-  "Are you currently under any medical treatment?",
-];
-
 export const SAFETY_FAIL_MESSAGE =
   `Thank you for sharing that with us 💖 For your safety, we recommend avoiding injectable treatments for now and booking a consultation first.\n\nOur licensed aestheticians can suggest gentle, non-invasive facial options that are safe and effective for you 🌸`;
 
 export const SAFETY_PASS_MESSAGE =
   `Great news — based on your answers, injectable treatments may be suitable for you! 😊 Here's what we offer:`;
-
-export const YES_NO_QUICK_REPLIES = [
-  { title: "✅ Yes", payload: "SCREENING_YES" },
-  { title: "❌ No", payload: "SCREENING_NO" },
-  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
-];
 
 export const BOOK_START_MESSAGES = [
   "Great, let's get you booked! 💖 Which of our services would you like to try?",
@@ -321,34 +252,6 @@ export const PAYLOAD_TO_SERVICE: Record<string, string> = {
   SVC_DRIP: "IV Drip",
   SVC_WARTS: "Warts Removal",
 };
-
-export const DATE_PROMPTS = [
-  "When are you available? 🗓️ You can type the date — like 'tomorrow', 'Saturday', or 'April 25'.",
-  "What date works best for you? 🌸 Just type it in (e.g. 'bukas' or 'April 28').",
-  "When would you like to schedule your appointment? 📅 Any date is fine — even 'next Monday'.",
-  "Got it! 💖 What day are you free? You can say 'tomorrow', 'Sabado', or a specific date.",
-];
-
-export const TIME_PROMPTS = [
-  "What time do you prefer? 🕐 (e.g. '10am', '2pm', or 'afternoon')",
-  "What time works for you? ✨ We're open 9am–7pm.",
-  "What time is best for you? 😊 You can say '11am', '3pm', or even 'morning'/'hapon'.",
-  "Please type your preferred time 🕐 (e.g. '1pm', '4:30pm', or 'morning')",
-];
-
-export const NAME_PROMPTS = [
-  "Could you share your full name for the reservation? 💖",
-  "What's your name? 😊",
-  "To confirm your booking — what's your full name?",
-  "Please type your full name so we can finalize your slot 💕",
-];
-
-export const MOBILE_PROMPTS = [
-  "Thanks! 📱 Please share your mobile number so we can send you a confirmation.",
-  "Almost done! 😊 What's your mobile number? We'll use it to send reminders.",
-  "Last step — please share your mobile number 💖 (e.g. 09171234567)",
-  "What's your contact number? 📲 We'll use it for your booking confirmation.",
-];
 
 export const RETRY_MESSAGES = [
   "Hmm, I didn't quite catch that 😅 Could you try again? ",

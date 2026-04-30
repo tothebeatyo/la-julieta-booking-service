@@ -5,7 +5,6 @@ import { execSync } from "child_process";
 import { logger } from "../lib/logger";
 import { upsertClient } from "./clientService";
 import { sendTelegramAlert } from "./telegramService";
-import { notifyBooking } from "./telegramNotifier";
 import { pool } from "@workspace/db";
 
 // ─── Module-level constants (used by autoBook) ────────────────────────────────
@@ -649,14 +648,11 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
       [isSuccess ? "auto_booked" : "manual_booking_required", details.psid],
     ).catch(() => {});
 
-    await notifyBooking({
-      name: details.name,
-      service: details.service,
-      date: details.date,
-      time: details.time,
-      status: isSuccess ? "success" : "failed",
-      psid: details.psid,
-    });
+    sendTelegramAlert(
+      isSuccess
+        ? `✅ <b>AUTO-BOOKING SUCCESS</b>\n\n👤 <b>Name:</b> ${details.name}\n💆 <b>Service:</b> ${details.service}\n📅 <b>Date/Time:</b> ${details.date} at ${details.time}\n📸 Screenshot: ${finalShot}`
+        : `⚠️ <b>AUTO-BOOKING FAILED — MANUAL BOOKING REQUIRED</b>\n\n👤 <b>Name:</b> ${details.name}\n💆 <b>Service:</b> ${details.service}\n📅 <b>Date/Time:</b> ${details.date} at ${details.time}`,
+    ).catch(() => {});
 
     logger.info({ isSuccess }, "autoBook: complete");
     return { success: isSuccess, screenshotPath: finalShot };
@@ -667,14 +663,9 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
       `UPDATE clients SET anypluspro_status = 'manual_booking_required', updated_at = NOW() WHERE psid = $1`,
       [details.psid],
     ).catch(() => {});
-    await notifyBooking({
-      name: details.name,
-      service: details.service,
-      date: details.date,
-      time: details.time,
-      status: "failed",
-      psid: details.psid,
-    }).catch(() => {});
+    sendTelegramAlert(
+      `⚠️ <b>AUTO-BOOKING FAILED — MANUAL BOOKING REQUIRED</b>\n\n👤 <b>Name:</b> ${details.name}\n💆 <b>Service:</b> ${details.service}\n📅 <b>Date/Time:</b> ${details.date} at ${details.time}`,
+    ).catch(() => {});
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   } finally {
     if (browser) await browser.close().catch(() => {});
