@@ -267,12 +267,16 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
     setMessages([]);
     setFetchError(null);
     setLoading(true);
+    console.log("[Chat] Fetching messages for PSID:", client.psid);
     apiGet<{ messages: Message[]; total: number }>(`/clients/${client.psid}/messages`, token)
       .then(d => {
-        setMessages(d.messages ?? []);
+        const msgs = d.messages ?? [];
+        console.log("[Chat] Messages received:", msgs.length, msgs);
+        setMessages(msgs);
         setTimeout(scrollToBottom, 100);
       })
       .catch((err: unknown) => {
+        console.error("[Chat] Fetch error:", err);
         setFetchError(err instanceof Error ? err.message : "Failed to load messages");
       })
       .finally(() => setLoading(false));
