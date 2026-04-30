@@ -78,7 +78,12 @@ async function processEvent(event: Record<string, unknown>, channel: "messenger"
   const message = event["message"] as Record<string, unknown> | undefined;
   const postback = event["postback"] as { payload?: string; title?: string } | undefined;
 
-  if (!message && !postback) return;
+  // Detect ad reply context — present on referral events AND on messages sent after clicking an ad
+  const referral = (event["referral"] ?? message?.["referral"]) as Record<string, unknown> | undefined;
+  const adId = referral?.["ad_id"] as string | undefined;
+
+  // Allow through if it's a regular message/postback OR an ad referral open-thread event
+  if (!message && !postback && !adId) return;
 
   // Echo from the page itself — ignore
   if (message?.["is_echo"]) return;
@@ -94,14 +99,23 @@ async function processEvent(event: Record<string, unknown>, channel: "messenger"
   setSession(psid, { channel });
 
   // Fire-and-forget DB logging — never block message sending on DB latency
-  const inboundContent = text || payload || "(postback)";
+  const inboundContent = text || payload || (adId ? "(ad reply)" : "(postback)");
   const channelTag = channel === "instagram" ? "[IG] " : "";
   logMessage(psid, "inbound", channelTag + inboundContent).catch((err) =>
     logger.error({ err, psid }, "Failed to log inbound message"),
   );
-  upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel }).catch((err) =>
-    logger.error({ err, psid }, "Failed to upsert client"),
-  );
+
+  // Tag ad-reply leads with intent "facebook_ad" so they're identifiable in the dashboard
+  if (adId) {
+    logger.info({ psid, adId }, "Message from ad reply");
+    upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel, intent: "facebook_ad" }).catch((err) =>
+      logger.error({ err, psid }, "Failed to upsert ad-reply client"),
+    );
+  } else {
+    upsertClient({ psid, lastMessage: inboundContent, status: "inquiry", channel }).catch((err) =>
+      logger.error({ err, psid }, "Failed to upsert client"),
+    );
+  }
 
   // Fetch profile name in the background (works for Messenger; Instagram may not return name)
   getProfileName(psid)
