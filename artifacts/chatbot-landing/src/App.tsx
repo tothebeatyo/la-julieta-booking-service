@@ -256,6 +256,7 @@ function formatDividerDate(ts: string | null | undefined): string {
 function MessageDrawer({ client, token, onClose }: { client: Client; token: string; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -264,9 +265,16 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
 
   useEffect(() => {
     setMessages([]);
+    setFetchError(null);
     setLoading(true);
-    apiGet<{ messages: Message[] }>(`/clients/${client.psid}/messages`, token)
-      .then(d => { setMessages(d.messages); setTimeout(scrollToBottom, 100); })
+    apiGet<{ messages: Message[]; total: number }>(`/clients/${client.psid}/messages`, token)
+      .then(d => {
+        setMessages(d.messages ?? []);
+        setTimeout(scrollToBottom, 100);
+      })
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : "Failed to load messages");
+      })
       .finally(() => setLoading(false));
   }, [client.psid, token]);
 
@@ -343,10 +351,16 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
           {loading && (
             <p className="text-center text-sm text-muted-foreground py-8">Loading…</p>
           )}
-          {!loading && messages.length === 0 && (
+          {!loading && fetchError && (
+            <div className="text-center py-8">
+              <p className="text-sm text-red-500 font-medium">⚠️ Could not load messages</p>
+              <p className="text-xs text-muted-foreground mt-1">{fetchError}</p>
+            </div>
+          )}
+          {!loading && !fetchError && messages.length === 0 && (
             <p className="text-center text-sm text-muted-foreground py-8">No messages recorded yet.</p>
           )}
-          {!loading && messages.length > 0 && renderedMessages()}
+          {!loading && !fetchError && messages.length > 0 && renderedMessages()}
           <div ref={bottomRef} />
         </div>
 

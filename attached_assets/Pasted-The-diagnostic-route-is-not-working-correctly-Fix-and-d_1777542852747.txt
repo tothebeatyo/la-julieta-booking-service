@@ -1,0 +1,200 @@
+The diagnostic route is not working correctly.
+Fix and do the following:
+
+STEP 1 — Check messages table in database
+Run this directly in the database and log results 
+to the server console:
+
+In artifacts/api-server/src/index.ts or app.ts,
+add this one-time startup check:
+
+// Add after server starts listening:
+async function runStartupDiagnostic(): Promise<void> {
+  try {
+    const { pool } = await import("@workspace/db");
+    
+    // Check tables exist
+    const tables = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `);
+    logger.info({ tables: tables.rows.map(r => r.table_name) }, "DB TABLES");
+
+    // Check messages table
+    const msgCount = await pool.query("SELECT COUNT(*) as total FROM messages");
+    logger.info({ count: msgCount.rows[0] }, "MESSAGES COUNT");
+
+    // Check clients table  
+    const clientCount = await pool.query("SELECT COUNT(*) as total FROM clients");
+    logger.info({ count: clientCount.rows[0] }, "CLIENTS COUNT");
+
+    // Check recent messages
+    const recentMsgs = await pool.query(
+      "SELECT * FROM messages ORDER BY created_at DESC LIMIT 5"
+    );
+    logger.info({ messages: recentMsgs.rows }, "RECENT MESSAGES");
+
+    // Create messages table if missing
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        psid TEXT NOT NULL,
+        direction TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_messages_psid ON messages(psid);
+    `);
+    logger.info("Messages table ensured");
+
+  } catch (err) {
+    logger.error({ err }, "STARTUP DIAGNOSTIC FAILED");
+  }
+}
+
+// Call it:
+server.listen(port, () => {
+  logger.info({ port }, "Server listening");
+  runStartupDiagnostic();
+});
+
+STEP 2 — Fix the diagnostic API route
+The route needs to return JSON properly.
+Make sure it's registered BEFORE the static 
+file serving in app.ts.
+
+In admin.ts add this route at the VERY TOP
+before all other routes:
+
+router.get("/diagnostic",
+  authMiddleware as any,
+  async (_req: Request, res: Response) => {
+    try {
+      const { pool } = await import("@workspace/db");
+
+      const [tables, clients, messages, recent] = await Promise.all([
+        pool.query(`
+          SELECT table_name FROM information_schema.tables 
+          WHERE table_schema = 'public'
+        `),
+        pool.query("SELECT COUNT(*) as total FROM clients"),
+        pool.query("SELECT COUNT(*) as total FROM messages"),
+        pool.query(`
+          SELECT psid, direction, content, created_at 
+          FROM messages 
+          ORDER BY created_at DESC 
+          LIMIT 5
+        `),
+      ]);
+
+      res.json({
+        tables: tables.rows.map(r => r.table_name),
+        clientCount: clients.rows[0].total,
+        messageCount: messages.rows[0].total,
+        recentMessages: recent.rows,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+});
+
+STEP 3 — Force create messages table NOW
+Run this immediately in the database:
+
+In a new temporary file scripts/fix-db.ts:
+
+import { pool } from "@workspace/db";
+
+async function fixDb() {
+  // Create messages table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      psid TEXT NOT NULL,
+      direction TEXT NOT NULL 
+        CHECK (direction IN ('inbound', 'outbound')),
+      content TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_psid 
+      ON messages(psid);
+    CREATE INDEX IF NOT EXISTS idx_messages_created 
+      ON messages(created_at DESC);
+  `);
+  console.log("✅ Messages table created/verified");
+
+  // Check clients table has all needed columns
+  await pool.query(`
+    ALTER TABLE clients 
+    ADD COLUMN IF NOT EXISTS channel TEXT DEFAULT 'messenger';
+    ALTER TABLE clients 
+    ADD COLUMN IF NOT EXISTS last_message TEXT;
+    ALTER TABLE clients 
+    ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE clients 
+    ADD COLUMN IF NOT EXISTS service TEXT;
+    ALTER TABLE clients 
+    ADD COLUMN IF NOT EXISTS name TEXT;
+  `).catch(e => console.log("Column check:", e.message));
+  
+  console.log("✅ Clients table verified");
+  
+  // Count existing data
+  const msgs = await pool.query("SELECT COUNT(*) FROM messages");
+  const clients = await pool.query("SELECT COUNT(*) FROM clients");
+  console.log("Messages:", msgs.rows[0].count);
+  console.log("Clients:", clients.rows[0].count);
+  
+  await pool.end();
+}
+
+fixDb().catch(console.error);
+
+Then run in Replit shell:
+cd artifacts/api-server && npx tsx scripts/fix-db.ts
+
+STEP 4 — Fix the Chat button in the dashboard
+In artifacts/chatbot-landing/src/, 
+find where the Chat button is handled.
+
+The issue might be that the API call uses wrong URL.
+Make sure it calls the correct endpoint:
+
+// CORRECT way to fetch messages:
+const fetchMessages = async (psid: string) => {
+  const token = localStorage.getItem("adminToken") 
+    ?? sessionStorage.getItem("adminToken");
+    
+  const response = await fetch(
+    `/api/admin/clients/${psid}/messages`,
+    {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  
+  if (!response.ok) {
+    console.error("Failed to fetch messages:", response.status);
+    return [];
+  }
+  
+  const data = await response.json();
+  console.log("Messages response:", data); // debug log
+  return data.messages ?? [];
+};
+
+STEP 5 — Add console.log debugging temporarily
+In the chat component, add logs to trace the issue:
+
+console.log("Fetching messages for PSID:", psid);
+console.log("Messages received:", messages);
+console.log("Messages count:", messages.length);
+
+STEP 6 — Rebuild and restart
+cd artifacts/chatbot-landing && pnpm run build
+Restart api-server and check Replit console for 
+the startup diagnostic output.

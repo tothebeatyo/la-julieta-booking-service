@@ -107,11 +107,17 @@ export async function upsertClient(data: {
 
 export async function logMessage(psid: string, direction: "inbound" | "outbound", content: string): Promise<void> {
   try {
+    if (!psid || !content) {
+      logger.warn({ psid, direction }, "logMessage called with missing data — skipping");
+      return;
+    }
     await pool.query(
-      "INSERT INTO messages (psid, direction, content) VALUES ($1, $2, $3)",
-      [psid, direction, content]
+      `INSERT INTO messages (psid, direction, content, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [psid, direction, content.slice(0, 2000)],
     );
+    logger.info({ psid, direction, contentLength: content.length }, "Message logged");
   } catch (err) {
-    logger.error({ err, psid }, "Failed to log message");
+    logger.error({ err, psid, direction }, "CRITICAL: Failed to log message to DB");
   }
 }

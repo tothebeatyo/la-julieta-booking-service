@@ -1,0 +1,352 @@
+The admin dashboard is not showing messages from 
+clients. Do a complete diagnosis and fix all issues.
+
+STEP 1 — Check if messages table exists and has data
+Run these SQL queries and log the results:
+
+In artifacts/api-server/src/routes/admin.ts,
+add a temporary diagnostic route:
+
+router.get("/diagnostic", 
+  authMiddleware as any,
+  async (_req: Request, res: Response) => {
+    try {
+      const [
+        clientCount,
+        messageCount,
+        recentClients,
+        recentMessages,
+        tableCheck
+      ] = await Promise.all([
+        pool.query("SELECT COUNT(*) as total FROM clients"),
+        pool.query("SELECT COUNT(*) as total FROM messages"),
+        pool.query(`
+          SELECT psid, name, channel, last_message, 
+                 created_at, updated_at 
+          FROM clients 
+          ORDER BY updated_at DESC 
+          LIMIT 5
+        `),
+        pool.query(`
+          SELECT id, psid, direction, content, created_at 
+          FROM messages 
+          ORDER BY created_at DESC 
+          LIMIT 10
+        `),
+        pool.query(`
+          SELECT table_name, column_name, data_type 
+          FROM information_schema.columns 
+          WHERE table_name IN ('clients', 'messages')
+          ORDER BY table_name, ordinal_position
+        `)
+      ]);
+
+      res.json({
+        counts: {
+          clients: clientCount.rows[0],
+          messages: messageCount.rows[0],
+        },
+        recentClients: recentClients.rows,
+        recentMessages: recentMessages.rows,
+        tableSchema: tableCheck.rows,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+});
+
+STEP 2 — Fix messages table if it doesn't exist
+Check if messages table exists. If not, create it:
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id SERIAL PRIMARY KEY,
+    psid TEXT NOT NULL,
+    direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  );
+  CREATE INDEX IF NOT EXISTS idx_messages_psid 
+    ON messages(psid);
+  CREATE INDEX IF NOT EXISTS idx_messages_created 
+    ON messages(created_at DESC);
+`);
+
+STEP 3 — Fix logMessage function
+In artifacts/api-server/src/services/clientService.ts,
+replace the entire logMessage function with this
+bulletproof version:
+
+export async function logMessage(
+  psid: string,
+  direction: "inbound" | "outbound",
+  content: string
+): Promise<void> {
+  try {
+    if (!psid || !content) {
+      logger.warn({ psid, direction }, "logMessage called with missing data");
+      return;
+    }
+
+    await pool.query(
+      `INSERT INTO messages (psid, direction, content, created_at)
+       VALUES ($1, $2, $3, NOW())`,
+      [psid, direction, content.slice(0, 2000)] // limit content length
+    );
+    
+    logger.info({ psid, direction, contentLength: content.length }, "Message logged");
+  } catch (err) {
+    logger.error({ err, psid, direction }, "CRITICAL: Failed to log message to DB");
+  }
+}
+
+STEP 4 — Fix upsertClient to always work
+In artifacts/api-server/src/services/clientService.ts,
+replace upsertClient with this version:
+
+export async function upsertClient(data: {
+  psid: string;
+  name?: string;
+  phone?: string;
+  service?: string;
+  status?: string;
+  channel?: string;
+  lastMessage?: string;
+  leadSource?: string;
+}): Promise<void> {
+  try {
+    await pool.query(
+      `INSERT INTO clients (
+        psid, name, phone, service, status, 
+        channel, last_message, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+      ON CONFLICT (psid) DO UPDATE SET
+        name = COALESCE(EXCLUDED.name, clients.name),
+        phone = COALESCE(EXCLUDED.phone, clients.phone),
+        service = COALESCE(EXCLUDED.service, clients.service),
+        status = COALESCE(EXCLUDED.status, clients.status),
+        channel = COALESCE(EXCLUDED.channel, clients.channel),
+        last_message = COALESCE(EXCLUDED.last_message, clients.last_message),
+        updated_at = NOW()`,
+      [
+        data.psid,
+        data.name ?? null,
+        data.phone ?? null,
+        data.service ?? null,
+        data.status ?? "inquiry",
+        data.channel ?? "messenger",
+        data.lastMessage ?? null,
+      ]
+    );
+    logger.info({ psid: data.psid }, "Client upserted successfully");
+  } catch (err) {
+    logger.error({ err, psid: data.psid }, "CRITICAL: Failed to upsert client");
+  }
+}
+
+STEP 5 — Fix GET messages route to always return data
+In artifacts/api-server/src/routes/admin.ts,
+replace GET /clients/:psid/messages with:
+
+router.get("/clients/:psid/messages",
+  authMiddleware as any,
+  async (req: Request, res: Response) => {
+    try {
+      const { psid } = req.params;
+
+      // Get messages
+      const messagesResult = await pool.query(
+        `SELECT 
+          id,
+          psid,
+          direction,
+          content,
+          created_at
+         FROM messages
+         WHERE psid = $1
+         ORDER BY created_at ASC`,
+        [psid]
+      );
+
+      // Get client info
+      const clientResult = await pool.query(
+        `SELECT 
+          psid,
+          COALESCE(name, 'User •••' || RIGHT(psid, 6)) as name,
+          phone,
+          email,
+          channel,
+          service,
+          status,
+          lead_status,
+          anypluspro_status,
+          created_at,
+          updated_at
+         FROM clients
+         WHERE psid = $1`,
+        [psid]
+      );
+
+      logger.info({ 
+        psid, 
+        messageCount: messagesResult.rowCount 
+      }, "Messages fetched for client");
+
+      res.json({
+        messages: messagesResult.rows,
+        client: clientResult.rows[0] ?? null,
+        total: messagesResult.rowCount ?? 0,
+      });
+    } catch (err) {
+      logger.error({ err }, "Error fetching messages");
+      res.status(500).json({ 
+        error: "Failed to fetch messages",
+        messages: [],
+        total: 0
+      });
+    }
+});
+
+STEP 6 — Fix GET clients route to return ALL clients
+Replace GET /clients with:
+
+router.get("/clients",
+  authMiddleware as any,
+  async (req: Request, res: Response) => {
+    try {
+      const { 
+        status, 
+        lead_status, 
+        safety_flag,
+        anypluspro_status,
+        channel
+      } = req.query as Record<string, string>;
+
+      let whereClause = "WHERE 1=1";
+      const values: unknown[] = [];
+      let paramCount = 1;
+
+      if (safety_flag === "pregnant") {
+        whereClause += ` AND safety_flags LIKE '%pregnant%'`;
+      } else if (safety_flag === "injection_allergy") {
+        whereClause += ` AND safety_flags LIKE '%injection_allergy%'`;
+      } else if (anypluspro_status && anypluspro_status !== "all") {
+        whereClause += ` AND anypluspro_status = $${paramCount++}`;
+        values.push(anypluspro_status);
+      } else if (lead_status && lead_status !== "all") {
+        whereClause += ` AND lead_status = $${paramCount++}`;
+        values.push(lead_status);
+      } else if (status && status !== "all") {
+        whereClause += ` AND status = $${paramCount++}`;
+        values.push(status);
+      }
+
+      if (channel && channel !== "all") {
+        whereClause += ` AND channel = $${paramCount++}`;
+        values.push(channel);
+      }
+
+      const result = await pool.query(
+        `SELECT 
+          psid,
+          COALESCE(name, 'User •••' || RIGHT(psid, 6)) as name,
+          phone,
+          email,
+          service,
+          status,
+          lead_status,
+          anypluspro_status,
+          safety_flags,
+          channel,
+          last_message,
+          created_at,
+          updated_at
+         FROM clients
+         ${whereClause}
+         ORDER BY updated_at DESC
+         LIMIT 200`,
+        values
+      );
+
+      logger.info({ count: result.rowCount }, "Clients fetched");
+      res.json({ clients: result.rows });
+    } catch (err) {
+      logger.error({ err }, "Error fetching clients");
+      res.status(500).json({ 
+        error: "Failed to fetch clients",
+        clients: []
+      });
+    }
+});
+
+STEP 7 — Fix the Chat button in dashboard UI
+In artifacts/chatbot-landing/src/, find the 
+component that handles the Chat button click.
+
+Make sure when Chat is clicked it:
+1. Sets the selected client PSID
+2. Calls GET /api/admin/clients/:psid/messages
+3. Shows ALL messages in the chat panel
+4. Auto-scrolls to the bottom
+5. Shows "No messages yet" if empty array returned
+
+The fetch call should be:
+const response = await fetch(
+  `/api/admin/clients/${psid}/messages`,
+  {
+    headers: {
+      Authorization: `Bearer ${adminToken}`,
+    },
+  }
+);
+const data = await response.json();
+const messages = data.messages ?? [];
+
+STEP 8 — Fix messengerService to log outbound messages
+In artifacts/api-server/src/services/messengerService.ts,
+find ALL functions that send messages to Facebook.
+
+After EVERY successful send, add logging:
+
+import { logMessage } from "./clientService";
+
+// In sendWithDelay:
+export async function sendWithDelay(
+  psid: string,
+  text: string,
+  delay: number = 0
+): Promise<void> {
+  if (delay > 0) await new Promise(r => setTimeout(r, delay));
+  
+  const token = getTokenForPsid(psid);
+  const url = `https://graph.facebook.com/v19.0/me/messages?access_token=${token}`;
+  
+  const body = {
+    recipient: { id: psid },
+    message: { text },
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    logger.error({ error, psid }, "Failed to send message to Facebook");
+    return;
+  }
+
+  // Log outbound message to DB
+  await logMessage(psid, "outbound", text).catch((err) =>
+    logger.error({ err, psid }, "Failed to log outbound message")
+  );
+}
+
+Do the same for sendWithDelayAndQuickReplies —
+log the text content of the message after sending.
+
+STEP 9 — Rebuild and restart
+cd artifacts/chatbot-landing && pnpm run build
+Restart api-server.

@@ -85,50 +85,70 @@ router.post("/logout", async (req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
+// GET /api/admin/diagnostic
+router.get("/diagnostic", authMiddleware as unknown as (req: Request, res: Response) => void, async (_req: Request, res: Response) => {
+  try {
+    const [clientCount, messageCount, recentClients, recentMessages, tableCheck] = await Promise.all([
+      pool.query("SELECT COUNT(*) as total FROM clients"),
+      pool.query("SELECT COUNT(*) as total FROM messages"),
+      pool.query(`SELECT psid, name, channel, last_message, created_at, updated_at FROM clients ORDER BY updated_at DESC LIMIT 5`),
+      pool.query(`SELECT id, psid, direction, LEFT(content, 80) as content, created_at FROM messages ORDER BY created_at DESC LIMIT 10`),
+      pool.query(`SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_name IN ('clients','messages') ORDER BY table_name, ordinal_position`),
+    ]);
+    res.json({
+      counts: {
+        clients: clientCount.rows[0],
+        messages: messageCount.rows[0],
+      },
+      recentClients: recentClients.rows,
+      recentMessages: recentMessages.rows,
+      tableSchema: tableCheck.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // GET /api/admin/clients
-// Supports ?status=... and ?lead_status=... filters
+// Supports ?status=... ?lead_status=... ?safety_flag=... ?anypluspro_status=... ?channel=...
 router.get("/clients", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
   try {
-    const { status, lead_status, safety_flag } = req.query as { status?: string; lead_status?: string; safety_flag?: string };
+    const { status, lead_status, safety_flag, anypluspro_status, channel } = req.query as Record<string, string>;
 
-    let query: { text: string; values: unknown[] };
-
-    const { anypluspro_status } = req.query as Record<string, string>;
+    let whereClause = "WHERE 1=1";
+    const values: unknown[] = [];
+    let paramCount = 1;
 
     if (safety_flag === "pregnant") {
-      query = {
-        text: "SELECT * FROM clients WHERE safety_flags LIKE '%pregnant%' ORDER BY updated_at DESC",
-        values: [],
-      };
+      whereClause += ` AND safety_flags LIKE '%pregnant%'`;
     } else if (safety_flag === "injection_allergy") {
-      query = {
-        text: "SELECT * FROM clients WHERE safety_flags LIKE '%injection_allergy%' ORDER BY updated_at DESC",
-        values: [],
-      };
+      whereClause += ` AND safety_flags LIKE '%injection_allergy%'`;
     } else if (anypluspro_status && anypluspro_status !== "all") {
-      query = {
-        text: "SELECT * FROM clients WHERE anypluspro_status = $1 ORDER BY updated_at DESC",
-        values: [anypluspro_status],
-      };
+      whereClause += ` AND anypluspro_status = $${paramCount++}`;
+      values.push(anypluspro_status);
     } else if (lead_status && lead_status !== "all") {
-      query = {
-        text: "SELECT * FROM clients WHERE lead_status = $1 ORDER BY updated_at DESC",
-        values: [lead_status],
-      };
+      whereClause += ` AND lead_status = $${paramCount++}`;
+      values.push(lead_status);
     } else if (status && status !== "all") {
-      query = {
-        text: "SELECT * FROM clients WHERE status = $1 ORDER BY updated_at DESC",
-        values: [status],
-      };
-    } else {
-      query = { text: "SELECT * FROM clients ORDER BY updated_at DESC", values: [] };
+      whereClause += ` AND status = $${paramCount++}`;
+      values.push(status);
     }
 
-    const result = await pool.query(query);
+    if (channel && channel !== "all") {
+      whereClause += ` AND channel = $${paramCount++}`;
+      values.push(channel);
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM clients ${whereClause} ORDER BY updated_at DESC LIMIT 200`,
+      values,
+    );
+
+    logger.info({ count: result.rowCount }, "Clients fetched");
     res.json({ clients: result.rows });
   } catch (err) {
     logger.error({ err }, "Error fetching clients");
-    res.status(500).json({ error: "Failed to fetch clients" });
+    res.status(500).json({ error: "Failed to fetch clients", clients: [] });
   }
 });
 
@@ -136,14 +156,36 @@ router.get("/clients", authMiddleware as unknown as (req: Request, res: Response
 router.get("/clients/:psid/messages", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
   try {
     const { psid } = req.params;
-    const result = await pool.query(
-      "SELECT id, psid, direction, content, created_at FROM messages WHERE psid = $1 ORDER BY created_at ASC",
-      [psid]
-    );
-    res.json({ messages: result.rows });
+
+    const [messagesResult, clientResult] = await Promise.all([
+      pool.query(
+        `SELECT id, psid, direction, content, created_at
+         FROM messages
+         WHERE psid = $1
+         ORDER BY created_at ASC`,
+        [psid],
+      ),
+      pool.query(
+        `SELECT psid,
+                COALESCE(name, 'User •••' || RIGHT(psid, 6)) as name,
+                mobile, email, channel, service, status, lead_status,
+                anypluspro_status, created_at, updated_at
+         FROM clients
+         WHERE psid = $1`,
+        [psid],
+      ),
+    ]);
+
+    logger.info({ psid, messageCount: messagesResult.rowCount }, "Messages fetched for client");
+
+    res.json({
+      messages: messagesResult.rows,
+      client: clientResult.rows[0] ?? null,
+      total: messagesResult.rowCount ?? 0,
+    });
   } catch (err) {
     logger.error({ err }, "Error fetching messages");
-    res.status(500).json({ error: "Failed to fetch messages" });
+    res.status(500).json({ error: "Failed to fetch messages", messages: [], total: 0 });
   }
 });
 
