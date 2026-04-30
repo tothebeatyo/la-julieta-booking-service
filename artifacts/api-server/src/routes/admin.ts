@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { retryAutoBooking } from "../services/anyplusService";
 
 const router: IRouter = Router();
 
@@ -176,7 +177,6 @@ router.get("/stats", authMiddleware as unknown as (req: Request, res: Response) 
 router.post("/clients/:psid/retry-booking", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
   try {
     const { psid } = req.params;
-    const { retryAutoBooking } = await import("../services/anyplusService");
     const result = await retryAutoBooking(psid);
     res.json(result);
   } catch (err) {
