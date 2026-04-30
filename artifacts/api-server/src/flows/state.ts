@@ -5,6 +5,8 @@ export type BookingStep =
   | "safety_screening"
   | "choosing_service"
   | "awaiting_book_decision"
+  | "entering_booking_form"
+  | "awaiting_missing_field"
   | "entering_date"
   | "entering_time"
   | "entering_name"
@@ -33,6 +35,8 @@ export interface UserState {
   screeningPassed?: boolean;
   pendingService?: string;
   intent?: string;
+  clientType?: string;
+  missingFields?: string[];
 }
 
 const userSessions = new Map<string, UserState>();

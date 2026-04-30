@@ -214,14 +214,9 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
       await startSafetyScreening(psid, session.service);
       return;
     }
-    setSession(psid, { step: "entering_date", retryCount: 0 });
+    setSession(psid, { step: "entering_booking_form", retryCount: 0 });
     upsertClient({ psid, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-    await sendWithDelayAndQuickReplies(
-      psid,
-      `Great! Let's book your ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
-      TALK_TO_STAFF_QR,
-      1000,
-    );
+    await sendBookingFormRequest(psid, session.service);
     return;
   }
 
@@ -235,6 +230,14 @@ export async function handleBookingFlow(psid: string, text: string, payload?: st
     }
     case "choosing_service": {
       await handleServiceChoice(psid, text, payload);
+      break;
+    }
+    case "entering_booking_form": {
+      await handleBookingFormEntry(psid, text);
+      break;
+    }
+    case "awaiting_missing_field": {
+      await handleMissingFieldEntry(psid, text);
       break;
     }
     case "entering_date": {
@@ -444,14 +447,9 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   if (session.step === "awaiting_book_decision" && session.service && !payload) {
     const isYes = /^(yes|oo|opo|sure|sige|ayos|ok|okay|go|push|yep|yup|tara|sali|gusto|i want|book|pls|please|ayan|booking|let's go|lets go|sali na|sige na|oo na|sure na)$/i.test(text.trim());
     if (isYes) {
-      setSession(psid, { step: "entering_date", retryCount: 0 });
+      setSession(psid, { step: "entering_booking_form", retryCount: 0 });
       upsertClient({ psid, status: "inquiry", leadStatus: "booking_requested" }).catch(() => {});
-      await sendWithDelayAndQuickReplies(
-        psid,
-        `Great! Let's book your ${session.service} 🌸 ${randomPick(DATE_PROMPTS)}`,
-        TALK_TO_STAFF_QR,
-        1000,
-      );
+      await sendBookingFormRequest(psid, session.service!);
       return;
     }
   }
@@ -922,27 +920,151 @@ async function handleEmailEntry(psid: string, text: string): Promise<void> {
   await showFinalConfirmation(psid);
 }
 
+// ─── Booking Form (single-message flow) ──────────────────────────────────────
+
+async function sendBookingFormRequest(psid: string, service: string): Promise<void> {
+  await sendWithDelayAndQuickReplies(
+    psid,
+    `Great! Let's book your ${service} 💕\n\nPlease reply with the following details:\n\n🔘 Old or New Client: (type Old or New)\n👤 Name:\n📱 Mobile Number:\n💆 Service: ${service}\n📅 Preferred Date:\n🕐 Preferred Time:\n\nJust copy and paste the format above and fill in your details! 😊`,
+    TALK_TO_STAFF_QR,
+    1000,
+  );
+}
+
+function parseBookingForm(text: string): {
+  clientType?: string;
+  name?: string;
+  mobile?: string;
+  date?: string;
+  time?: string;
+} {
+  const result: { clientType?: string; name?: string; mobile?: string; date?: string; time?: string } = {};
+
+  const patterns: Array<[keyof typeof result, RegExp]> = [
+    ["clientType", /(?:🔘\s*)?(?:old or new client|client type|client)\s*[:\-]\s*(.+)/i],
+    ["name", /(?:👤\s*)?(?:full name|name)\s*[:\-]\s*(.+)/i],
+    ["mobile", /(?:📱\s*)?(?:mobile(?: number)?|phone|contact|number|cp|cel)\s*[:\-]\s*(.+)/i],
+    ["date", /(?:📅\s*)?(?:preferred date|date)\s*[:\-]\s*(.+)/i],
+    ["time", /(?:🕐\s*)?(?:preferred time|time)\s*[:\-]\s*(.+)/i],
+  ];
+
+  for (const [key, pattern] of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const val = match[1].trim();
+      if (val && val !== "-" && val !== "—" && val !== "") {
+        result[key] = val;
+      }
+    }
+  }
+
+  return result;
+}
+
+async function handleBookingFormEntry(psid: string, text: string): Promise<void> {
+  const session = getSession(psid);
+  const parsed = parseBookingForm(text);
+
+  // Merge parsed values into session (keep existing if not provided)
+  setSession(psid, {
+    clientType: parsed.clientType ?? session.clientType,
+    name:       parsed.name    ?? session.name,
+    mobile:     parsed.mobile  ?? session.mobile,
+    date:       parsed.date    ?? session.date,
+    time:       parsed.time    ?? session.time,
+  });
+
+  const updated = getSession(psid);
+  const missing: string[] = [];
+  if (!updated.name)   missing.push("full name");
+  if (!updated.mobile) missing.push("mobile number");
+  if (!updated.date)   missing.push("preferred date");
+  if (!updated.time)   missing.push("preferred time");
+
+  if (missing.length > 0) {
+    setSession(psid, { step: "awaiting_missing_field", missingFields: missing });
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Almost there! 😊 Could you also share your ${missing[0]}?`,
+      TALK_TO_STAFF_QR,
+      800,
+    );
+    return;
+  }
+
+  await showFinalConfirmation(psid);
+}
+
+async function handleMissingFieldEntry(psid: string, text: string): Promise<void> {
+  const session = getSession(psid);
+  const missing = session.missingFields ?? [];
+  const current = missing[0];
+
+  if (!current) {
+    await showFinalConfirmation(psid);
+    return;
+  }
+
+  const trimmed = text.trim();
+
+  if (current === "mobile number") {
+    const mobile = trimmed.replace(/\s/g, "");
+    const mobilePattern = /^(\+63|0)[0-9]{9,10}$|^\d{7,11}$/;
+    if (!mobilePattern.test(mobile)) {
+      await sendWithDelayAndQuickReplies(
+        psid,
+        `${randomPick(RETRY_MESSAGES)}What's your mobile number? (e.g. 09171234567)`,
+        TALK_TO_STAFF_QR,
+        800,
+      );
+      return;
+    }
+    setSession(psid, { mobile });
+  } else if (current === "full name") {
+    setSession(psid, { name: trimmed });
+  } else if (current === "preferred date") {
+    setSession(psid, { date: trimmed });
+  } else if (current === "preferred time") {
+    setSession(psid, { time: trimmed });
+  }
+
+  const remaining = missing.slice(1);
+  setSession(psid, { missingFields: remaining });
+
+  if (remaining.length > 0) {
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `Got it! 😊 One more — could you share your ${remaining[0]}?`,
+      TALK_TO_STAFF_QR,
+      800,
+    );
+    return;
+  }
+
+  await showFinalConfirmation(psid);
+}
+
 async function showFinalConfirmation(psid: string): Promise<void> {
   const s = getSession(psid);
   setSession(psid, { step: "final_confirming" });
 
-  const emailLine = s.email ? `📧 Email: ${s.email}` : `📧 Email: Not provided`;
+  const clientTypeLine = s.clientType ? `🔘 Client Type: ${s.clientType}\n` : "";
   const summary =
-    `Please confirm your booking request:\n\n` +
+    `Perfect! Here's your booking summary 📋\n\n` +
+    clientTypeLine +
     `👤 Name: ${s.name}\n` +
-    `📱 Contact: ${s.mobile}\n` +
-    `${emailLine}\n` +
-    `💆 Service/Concern: ${s.service}\n` +
+    `📱 Mobile: ${s.mobile}\n` +
+    `💆 Service: ${s.service}\n` +
     `📅 Date: ${s.date}\n` +
     `🕐 Time: ${s.time}\n\n` +
-    `Reply YES to confirm or CHANGE to edit.`;
+    `Shall we confirm this booking?`;
 
   await sendWithDelayAndQuickReplies(
     psid,
     summary,
     [
-      { title: "✅ YES — Confirm", payload: "CONFIRM_BOOKING" },
-      { title: "✏️ CHANGE — Edit", payload: "EDIT_BOOKING" },
+      { title: "✅ Confirm", payload: "CONFIRM_BOOKING" },
+      { title: "✏️ Edit", payload: "EDIT_BOOKING" },
       { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
     ],
     1500,
