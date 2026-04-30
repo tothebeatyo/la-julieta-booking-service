@@ -1,0 +1,32 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7ocbM6yj9fFzdu-Lk4E7p"
+uri = "file://artifacts/api-server/logs/screenshots/01_login_page_1777529480295.png"
+type = "image"
+title = "Step 1 — Login Page"
+
+[[outputs]]
+id = "SAKMCSPCjvId7xbLMiBxf"
+uri = "file://artifacts/api-server/logs/screenshots/02_after_login_1777529480525.png"
+type = "image"
+title = "Step 2 — After Login"
+
+[[outputs]]
+id = "XUds0YXboj8hmc82WerH8"
+uri = "file://artifacts/api-server/logs/screenshots/03_appointments_page_1777529480657.png"
+type = "image"
+title = "Step 3 — Appointments Page"
+
+[[outputs]]
+id = "hs014GehQRAk0oAoQEcsP"
+uri = "file://artifacts/api-server/logs/screenshots/04_book_appointment_modal_1777529482714.png"
+type = "image"
+title = "Step 4 — Book Appointment Modal"
+
+[[outputs]]
+id = "ab5mtja3AolYKMdueAVwK"
+uri = "file://artifacts/api-server/logs/screenshots/05_register_patient_1777529485474.png"
+type = "image"
+title = "Step 5 — Register Patient (where it timed out)"

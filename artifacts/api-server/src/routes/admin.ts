@@ -304,6 +304,7 @@ router.post("/test-anyplus", authMiddleware as any, async (_req: Request, res: R
       date: "2026-05-01",
       time: "10:00 AM",
       mobile: "09000000000",
+      channel: "messenger",
     });
     res.json({
       result,
