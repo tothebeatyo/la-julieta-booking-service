@@ -1,6 +1,7 @@
 import { chromium, type Browser, type Page } from "playwright";
 import path from "path";
 import fs from "fs";
+import { execSync } from "child_process";
 import { logger } from "../lib/logger";
 import { upsertClient } from "./clientService";
 import { sendTelegramAlert } from "./telegramService";
@@ -57,8 +58,31 @@ const SERVICE_KEYWORDS: Record<string, string[]> = {
   warts: ["warts", "warts removal"],
 };
 
-// Nix store Playwright chromium path (found in /nix/store)
-const NIX_CHROMIUM = "/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome";
+// Resolve the Chromium executable at startup:
+// 1. CHROMIUM_EXECUTABLE_PATH env override
+// 2. `which chromium` — Nix-installed system chromium (preferred, always has its libs)
+// 3. `which chromium-browser`
+// 4. undefined — fall back to Playwright's own downloaded binary
+function resolveChromiumPath(): string | undefined {
+  const env = process.env["CHROMIUM_EXECUTABLE_PATH"];
+  if (env && fs.existsSync(env)) return env;
+  for (const cmd of ["chromium", "chromium-browser"]) {
+    try {
+      const p = execSync(`which ${cmd}`, { encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] }).trim();
+      if (p && fs.existsSync(p)) return p;
+    } catch { /* not found, try next */ }
+  }
+  return undefined;
+}
+
+const CHROMIUM_EXEC = resolveChromiumPath();
+
+const BROWSER_ARGS = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-gpu",
+];
 
 function getScreenshotDir(): string {
   const dir = path.resolve("logs/screenshots");
@@ -84,18 +108,12 @@ async function takeScreenshot(page: Page, label: string): Promise<string> {
 
 async function launchBrowser(): Promise<Browser> {
   const headless = process.env["ANYPLUSPRO_HEADLESS"] !== "false";
-  try {
-    return await chromium.launch({
-      executablePath: fs.existsSync(NIX_CHROMIUM) ? NIX_CHROMIUM : undefined,
-      headless,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
-  } catch {
-    return await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
-  }
+  logger.info({ executablePath: CHROMIUM_EXEC ?? "(playwright default)" }, "launchBrowser: launching Chromium");
+  return chromium.launch({
+    executablePath: CHROMIUM_EXEC,
+    headless,
+    args: BROWSER_ARGS,
+  });
 }
 
 // ─── Main booking automation ──────────────────────────────────────────────────
@@ -494,13 +512,7 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
   try {
     logger.info({ details }, "autoBook: starting AnyPlusPro automation");
 
-    browser = await chromium.launch({
-      executablePath: fs.existsSync("/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome")
-        ? "/nix/store/0n9rl5l9syy808xi9bk4f6dhnfrvhkww-playwright-browsers-chromium/chromium-1080/chrome-linux/chrome"
-        : undefined,
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
+    browser = await launchBrowser();
 
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
