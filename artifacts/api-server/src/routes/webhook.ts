@@ -198,6 +198,15 @@ async function processEvent(
       return;
     }
 
+    // GET_STARTED button — user taps "Get Started" for the first time
+    if (payload === "GET_STARTED") {
+      logger.info({ psid }, "GET_STARTED — sending welcome");
+      setSession(psid, { step: "choosing_intent" });
+      await sendWithDelay(psid, randomPick(WELCOME_MESSAGES), 500);
+      await sendWithDelayAndQuickReplies(psid, INTENT_MENU_TEXT, INTENT_QUICK_REPLIES, 800);
+      return;
+    }
+
     const session = getSession(psid);
 
     // New conversation — show welcome for greetings

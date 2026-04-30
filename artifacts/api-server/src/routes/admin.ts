@@ -295,84 +295,107 @@ router.patch("/clients/:psid/status", authMiddleware as unknown as (req: Request
 });
 
 // POST /api/admin/setup-persistent-menu
-// Call this once to register the Messenger persistent menu
+// Sets Get Started button → greeting text → persistent menu in sequence
 router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request, res: Response) => void, async (_req: Request, res: Response) => {
   const token = process.env["PAGE_ACCESS_TOKEN"];
-
   if (!token) {
-    res.status(500).json({
-      error: "PAGE_ACCESS_TOKEN not set in Replit Secrets",
-    });
+    res.status(500).json({ error: "PAGE_ACCESS_TOKEN not set" });
     return;
   }
 
-  const menuPayload = {
-    persistent_menu: [
-      {
-        locale: "default",
-        composer_input_disabled: false,
-        call_to_actions: [
-          {
-            title: "📅 Book Appointment",
-            type: "postback",
-            payload: "INTENT_BOOK",
-          },
-          {
-            title: "💆 Our Services",
-            type: "nested",
-            call_to_actions: [
-              { title: "🧖 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
-              { title: "✨ Skin Concerns",      type: "postback", payload: "INTENT_SKIN_CONCERN" },
-              { title: "💎 Whitening",           type: "postback", payload: "INTENT_WHITENING" },
-              { title: "⚡ Slimming",            type: "postback", payload: "INTENT_SLIMMING" },
-            ],
-          },
-          {
-            title: "🎉 Promos & Support",
-            type: "nested",
-            call_to_actions: [
-              { title: "🎉 View Promos",      type: "postback", payload: "INTENT_PROMOS" },
-              { title: "👩‍⚕️ Talk to Agent", type: "postback", payload: "INTENT_STAFF" },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-
   try {
-    logger.info("Setting up persistent menu...");
+    const baseUrl = `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${token}`;
 
-    const url = `https://graph.facebook.com/v19.0/me/messenger_profile?access_token=${token}`;
-
-    const r = await fetch(url, {
+    // STEP 1 — Get Started button (must be set before persistent menu)
+    logger.info("Setting Get Started button...");
+    const getStartedRes = await fetch(baseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(menuPayload),
+      body: JSON.stringify({ get_started: { payload: "GET_STARTED" } }),
     });
+    const getStartedData = await getStartedRes.json() as Record<string, unknown>;
+    logger.info({ getStartedData }, "Get Started result");
 
-    const data = await r.json() as Record<string, unknown>;
-
-    if (!r.ok) {
-      logger.error({ data, status: r.status }, "Persistent menu setup failed");
-      res.status(r.status).json({
-        error: "Facebook API rejected the menu",
-        status: r.status,
-        detail: data,
-        tip: "Check if PAGE_ACCESS_TOKEN has pages_messaging permission",
+    if (!getStartedRes.ok) {
+      res.status(400).json({
+        error: "Failed to set Get Started button",
+        detail: getStartedData,
       });
       return;
     }
 
-    logger.info({ data }, "Persistent menu set up successfully");
-    res.json({ ok: true, result: data });
+    // STEP 2 — Greeting text
+    logger.info("Setting greeting text...");
+    await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        greeting: [
+          {
+            locale: "default",
+            text: "Hi {{user_first_name}}! 💕 Welcome to La Julieta Beauty Center. Tap Get Started to begin!",
+          },
+        ],
+      }),
+    });
+
+    // STEP 3 — Persistent menu
+    logger.info("Setting persistent menu...");
+    const menuRes = await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        persistent_menu: [
+          {
+            locale: "default",
+            composer_input_disabled: false,
+            call_to_actions: [
+              { title: "📅 Book Appointment", type: "postback", payload: "INTENT_BOOK" },
+              {
+                title: "💆 Our Services",
+                type: "nested",
+                call_to_actions: [
+                  { title: "🧖 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
+                  { title: "✨ Skin Concerns",      type: "postback", payload: "INTENT_SKIN_CONCERN" },
+                  { title: "💎 Whitening",           type: "postback", payload: "INTENT_WHITENING" },
+                  { title: "⚡ Slimming",            type: "postback", payload: "INTENT_SLIMMING" },
+                ],
+              },
+              {
+                title: "🎉 Promos & Support",
+                type: "nested",
+                call_to_actions: [
+                  { title: "🎉 View Promos",      type: "postback", payload: "INTENT_PROMOS" },
+                  { title: "👩‍⚕️ Talk to Agent", type: "postback", payload: "INTENT_STAFF" },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    const menuData = await menuRes.json() as Record<string, unknown>;
+    logger.info({ menuData }, "Menu setup result");
+
+    if (!menuRes.ok) {
+      res.status(400).json({
+        error: "Menu setup failed after Get Started was set",
+        detail: menuData,
+      });
+      return;
+    }
+
+    logger.info("All Messenger profile settings applied successfully");
+    res.json({
+      ok: true,
+      message: "✅ Get Started + Greeting + Menu all set successfully!",
+      result: menuData,
+    });
 
   } catch (err) {
-    logger.error({ err }, "Error setting up persistent menu");
-    res.status(500).json({
-      error: "Failed to call Facebook API",
-      detail: String(err),
-    });
+    logger.error({ err }, "Menu setup error");
+    res.status(500).json({ error: String(err) });
   }
 });
 

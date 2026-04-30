@@ -1,0 +1,208 @@
+The Telegram notification is not being sent for 
+new bookings. The latest booking went through the 
+chat flow but no Telegram alert was received.
+
+STEP 1 — Check where CONFIRM_BOOKING is handled
+In artifacts/api-server/src/flows/bookingFlow.ts,
+find the CONFIRM_BOOKING payload handler.
+
+Show me the EXACT current code for this section.
+It should:
+1. Send "booking now" message to client
+2. Call autoBook()
+3. Send result message to client
+4. Telegram notification should fire inside autoBook()
+
+STEP 2 — Add Telegram notification directly 
+in the CONFIRM_BOOKING handler as backup,
+in case autoBook() fails before notifying:
+
+if (payload === "CONFIRM_BOOKING") {
+  const bookingName = session.name ?? "Unknown";
+  const bookingService = session.service ?? "Unknown Service";
+  const bookingDate = session.date ?? "Unknown Date";
+  const bookingTime = session.time ?? "Unknown Time";
+  const bookingPhone = session.phone ?? "N/A";
+
+  // Send waiting message to client
+  await sendWithDelay(
+    psid,
+    "⏳ Perfect! We're booking your appointment now, please wait a moment...",
+    500
+  );
+
+  // Notify admin immediately when booking is confirmed
+  // regardless of AnyPlusPro result
+  const { notifyBooking } = await import("../services/telegramNotifier");
+  
+  // Send immediate notification that booking was requested
+  await notifyBooking({
+    name: bookingName,
+    service: bookingService,
+    date: bookingDate,
+    time: bookingTime,
+    status: "success",
+    psid,
+    note: `📱 Phone: ${bookingPhone} | ⏳ Attempting AnyPlusPro auto-booking...`
+  }).catch(err => logger.error({ err }, "Telegram notify failed"));
+
+  // Attempt AnyPlusPro auto-booking
+  try {
+    const { autoBook } = await import("../services/anyplusService");
+    const result = await autoBook({
+      psid,
+      name: bookingName,
+      service: bookingService,
+      date: bookingDate,
+      time: bookingTime,
+      phone: bookingPhone,
+      clientType: session.clientType ?? "New",
+    });
+
+    if (result.success) {
+      // Send success to client
+      await sendWithDelay(
+        psid,
+        `🎉 You're all set! Your ${bookingService} is booked for ${bookingDate} at ${bookingTime}. See you at La Julieta Beauty Center! 💕`,
+        800
+      );
+      // Update success notification
+      await notifyBooking({
+        name: bookingName,
+        service: bookingService,
+        date: bookingDate,
+        time: bookingTime,
+        status: "success",
+        psid,
+        note: `✅ Successfully booked on AnyPlusPro! Phone: ${bookingPhone}`
+      }).catch(() => {});
+    } else {
+      // Send manual confirmation message to client
+      await sendWithDelay(
+        psid,
+        "💕 Thank you! Our team will confirm your appointment shortly. You'll receive a message within 1 hour! 😊",
+        800
+      );
+      // Update failure notification
+      await notifyBooking({
+        name: bookingName,
+        service: bookingService,
+        date: bookingDate,
+        time: bookingTime,
+        status: "failed",
+        psid,
+        note: `⚠️ AnyPlusPro auto-booking failed. Phone: ${bookingPhone}. Error: ${result.error}`
+      }).catch(() => {});
+    }
+  } catch (err) {
+    logger.error({ err }, "autoBook crashed");
+    
+    // Send manual message to client
+    await sendWithDelay(
+      psid,
+      "💕 Thank you! Our team will confirm your appointment shortly. You'll receive a message within 1 hour! 😊",
+      800
+    );
+
+    // Notify admin of crash
+    await notifyBooking({
+      name: bookingName,
+      service: bookingService,
+      date: bookingDate,
+      time: bookingTime,
+      status: "failed",
+      psid,
+      note: `❌ autoBook crashed: ${String(err)}. Phone: ${bookingPhone}`
+    }).catch(() => {});
+  }
+
+  // Update DB status
+  await pool.query(
+    `UPDATE clients SET 
+      lead_status = 'booking_requested',
+      service = $1,
+      phone = $2,
+      name = $3,
+      updated_at = NOW()
+     WHERE psid = $4`,
+    [bookingService, bookingPhone, bookingName, psid]
+  ).catch(() => {});
+
+  setSession(psid, { step: "idle" });
+  return;
+}
+
+STEP 3 — Update telegramNotifier.ts to include
+phone number and note in the message:
+
+export async function notifyBooking(details: {
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+  status: "success" | "failed";
+  psid: string;
+  note?: string;
+}): Promise<void> {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn("Telegram not configured");
+    return;
+  }
+
+  const emoji = details.status === "success" ? "✅" : "⚠️";
+  const noteText = details.note ? `\n📝 ${details.note}` : "";
+
+  const message = `
+${emoji} *La Julieta Booking Alert*
+
+👤 *Name:* ${details.name}
+💆 *Service:* ${details.service}
+📅 *Date:* ${details.date}
+🕐 *Time:* ${details.time}
+🆔 *PSID:* ${details.psid}${noteText}
+🔗 https://www.lajulieta.anypluspro.com
+  `.trim();
+
+  try {
+    const response = await fetch(
+      `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: message,
+          parse_mode: "Markdown",
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json();
+      console.error("Telegram API error:", err);
+    } else {
+      console.log("Telegram notification sent successfully");
+    }
+  } catch (err) {
+    console.error("Telegram notification failed:", err);
+  }
+}
+
+STEP 4 — Test Telegram immediately
+Add a test route to verify Telegram is working:
+
+router.post("/test-telegram-now",
+  authMiddleware as any,
+  async (_req: Request, res: Response) => {
+    const { notifyBooking } = await import("../services/telegramNotifier");
+    await notifyBooking({
+      name: "Test Client",
+      service: "Test Service",
+      date: "May 1",
+      time: "2PM",
+      status: "success",
+      psid: "test-123",
+      note: "This is a test notification"
+    });
+    res.json({ ok: true, message: "Telegram test sent!" });
+});
