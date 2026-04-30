@@ -846,66 +846,107 @@ async function sendBookingFormRequest(psid: string, service: string): Promise<vo
   );
 }
 
-function parseBookingForm(text: string): {
-  clientType?: string;
-  name?: string;
-  mobile?: string;
-  date?: string;
-  time?: string;
-} {
-  const result: { clientType?: string; name?: string; mobile?: string; date?: string; time?: string } = {};
+async function handleBookingFormEntry(psid: string, text: string): Promise<void> {
+  const session = getSession(psid);
 
-  const patterns: Array<[keyof typeof result, RegExp]> = [
-    ["clientType", /(?:🔘\s*)?(?:old or new client|client type|client)\s*[:\-]\s*(.+)/i],
-    ["name", /(?:👤\s*)?(?:full name|name)\s*[:\-]\s*(.+)/i],
-    ["mobile", /(?:📱\s*)?(?:mobile(?: number)?|phone|contact|number|cp|cel)\s*[:\-]\s*(.+)/i],
-    ["date", /(?:📅\s*)?(?:preferred date|date)\s*[:\-]\s*(.+)/i],
-    ["time", /(?:🕐\s*)?(?:preferred time|time)\s*[:\-]\s*(.+)/i],
-  ];
+  // ── Smart line-by-line parser (detects by value pattern, not just labels) ──
+  const lines = text
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => l.length > 0);
 
-  for (const [key, pattern] of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) {
-      const val = match[1].trim();
-      if (val && val !== "-" && val !== "—" && val !== "") {
-        result[key] = val;
-      }
+  let clientType: string | null = null;
+  let name: string | null = null;
+  let phone: string | null = null;
+  let date: string | null = null;
+  let time: string | null = null;
+
+  for (const line of lines) {
+    // Strip leading emoji and common label prefixes
+    const clean = line
+      .replace(/[\u{1F300}-\u{1FFFF}]/gu, "")
+      .replace(/^(old or new client|client type|type|old\/new|new|old|name|mobile|mobile number|phone|date|preferred date|time|preferred time)\s*[:\-]?\s*/i, "")
+      .trim();
+
+    // Client type
+    if (
+      /^(new|old)$/i.test(clean) ||
+      /^(new|old)\s*client$/i.test(clean) ||
+      line.toLowerCase().includes("new client") ||
+      line.toLowerCase().includes("old client")
+    ) {
+      clientType = /old/i.test(line) ? "Old" : "New";
+      continue;
+    }
+
+    // Phone number: starts with 09/+63 or exactly 11 digits
+    if (
+      /^(\+63|0)\d{9,10}$/.test(clean.replace(/\s/g, "")) ||
+      /^\d{11}$/.test(clean.replace(/\s/g, ""))
+    ) {
+      phone = clean;
+      continue;
+    }
+
+    // Time: has AM/PM, or time-of-day words
+    if (/\d{1,2}(:\d{2})?\s*(am|pm)|morning|afternoon|evening|noon/i.test(clean)) {
+      time = clean;
+      continue;
+    }
+
+    // Date: month names, relative words, or numeric date formats
+    if (/tomorrow|bukas|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d{1,2}[-\/]\d{1,2}/i.test(clean)) {
+      date = clean;
+      continue;
+    }
+
+    // Fallback: anything left that isn't purely numeric is treated as a name
+    if (!name && clean.length > 1 && !/^\d+$/.test(clean)) {
+      name = clean;
     }
   }
 
-  return result;
-}
+  // ── STEP 2: carry over any partial data already in session ─────────────────
+  if (!clientType) clientType = session.clientType ?? null;
+  if (!name)       name       = session.name       ?? null;
+  if (!phone)      phone      = session.mobile     ?? null;
+  if (!date)       date       = session.date       ?? null;
+  if (!time)       time       = session.time       ?? null;
 
-async function handleBookingFormEntry(psid: string, text: string): Promise<void> {
-  const session = getSession(psid);
-  const parsed = parseBookingForm(text);
-
-  // Merge parsed values into session (keep existing if not provided)
-  setSession(psid, {
-    clientType: parsed.clientType ?? session.clientType,
-    name:       parsed.name    ?? session.name,
-    mobile:     parsed.mobile  ?? session.mobile,
-    date:       parsed.date    ?? session.date,
-    time:       parsed.time    ?? session.time,
-  });
-
-  const updated = getSession(psid);
+  // ── Check what's still missing ────────────────────────────────────────────
   const missing: string[] = [];
-  if (!updated.name)   missing.push("full name");
-  if (!updated.mobile) missing.push("mobile number");
-  if (!updated.date)   missing.push("preferred date");
-  if (!updated.time)   missing.push("preferred time");
+  if (!clientType) missing.push("Old or New Client");
+  if (!name)       missing.push("full name");
+  if (!phone)      missing.push("mobile number");
+  if (!date)       missing.push("preferred date");
+  if (!time)       missing.push("preferred time");
 
   if (missing.length > 0) {
-    setSession(psid, { step: "awaiting_missing_field", missingFields: missing });
+    setSession(psid, {
+      step: "entering_booking_form",
+      clientType: clientType ?? undefined,
+      name:       name       ?? undefined,
+      mobile:     phone      ?? undefined,
+      date:       date       ?? undefined,
+      time:       time       ?? undefined,
+    });
     await sendWithDelayAndQuickReplies(
       psid,
-      `Almost there! 😊 Could you also share your ${missing[0]}?`,
+      `Almost there! 😊 Could you also share your ${missing.join(", ")}?`,
       TALK_TO_STAFF_QR,
       800,
     );
     return;
   }
+
+  // ── All details collected — save and show confirmation ────────────────────
+  setSession(psid, {
+    clientType: clientType!,
+    name:       name!,
+    mobile:     phone!,
+    date:       date!,
+    time:       time!,
+  });
 
   await showFinalConfirmation(psid);
 }
@@ -1047,17 +1088,17 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
     }
 
   } else if (isEdit) {
+    // Keep the service — just clear personal details and go back to the form
     setSession(psid, {
-      step: "choosing_service",
-      service: undefined, date: undefined, time: undefined,
-      name: undefined, mobile: undefined, email: undefined,
-      emailConsent: undefined, retryCount: 0,
+      step: "entering_booking_form",
+      date: undefined, time: undefined,
+      name: undefined, mobile: undefined,
+      clientType: undefined, retryCount: 0,
     });
-    await sendWithDelayAndQuickReplies(
+    await sendWithDelay(
       psid,
-      "No worries! Let's fix that 😊 Which service would you like?",
-      SERVICES_QUICK_REPLIES,
-      1000,
+      `No problem! 😊 Please send your updated details:\n\n🔘 Old or New Client:\n👤 Name:\n📱 Mobile Number:\n📅 Preferred Date:\n🕐 Preferred Time:`,
+      800,
     );
   } else {
     await showFinalConfirmation(psid);

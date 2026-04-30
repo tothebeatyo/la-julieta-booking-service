@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useWebSocket } from "./hooks/useWebSocket";
 
 const WEBHOOK_BASE = window.location.origin;
 const WEBHOOK_PATH = "/webhook";
@@ -255,15 +256,35 @@ function formatDividerDate(ts: string | null | undefined): string {
 function MessageDrawer({ client, token, onClose }: { client: Client; token: string; onClose: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    // Reset state immediately so stale messages never flash when switching clients
     setMessages([]);
     setLoading(true);
     apiGet<{ messages: Message[] }>(`/clients/${client.psid}/messages`, token)
-      .then(d => setMessages(d.messages))
+      .then(d => { setMessages(d.messages); setTimeout(scrollToBottom, 100); })
       .finally(() => setLoading(false));
   }, [client.psid, token]);
+
+  useWebSocket({
+    new_message: (data) => {
+      const d = data as { psid: string; direction: string; content: string; created_at: string };
+      if (d.psid === client.psid) {
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          psid: d.psid,
+          direction: d.direction as "inbound" | "outbound",
+          content: d.content,
+          created_at: d.created_at,
+        }]);
+        setTimeout(scrollToBottom, 50);
+      }
+    },
+  });
 
   // Build message list with date dividers inserted between day groups
   const renderedMessages = () => {
@@ -326,6 +347,7 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
             <p className="text-center text-sm text-muted-foreground py-8">No messages recorded yet.</p>
           )}
           {!loading && messages.length > 0 && renderedMessages()}
+          <div ref={bottomRef} />
         </div>
 
         {client.anypluspro_screenshot && (
@@ -368,6 +390,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   const [search, setSearch] = useState("");
   const [menuSetupStatus, setMenuSetupStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [newMessagePsids, setNewMessagePsids] = useState<Set<string>>(new Set());
 
   const webhookUrl = `${WEBHOOK_BASE}${WEBHOOK_PATH}`;
 
@@ -401,6 +424,27 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
   }, [filter, token, onLogout]);
 
   useEffect(() => { load(); }, [load]);
+
+  const { isConnected } = useWebSocket({
+    new_message: (data) => {
+      const d = data as { psid: string; direction: string };
+      if (d.direction === "inbound") {
+        setNewMessagePsids(prev => new Set([...prev, d.psid]));
+        setTimeout(() => {
+          setNewMessagePsids(prev => { const n = new Set(prev); n.delete(d.psid); return n; });
+        }, 4000);
+        load();
+      }
+    },
+    client_updated: (data) => {
+      const d = data as { psid: string; lastMessage?: string; updated_at?: string };
+      setClients(prev => {
+        const exists = prev.find(c => c.psid === d.psid);
+        if (!exists) { load(); return prev; }
+        return prev.map(c => c.psid === d.psid ? { ...c, last_message: d.lastMessage ?? c.last_message, updated_at: d.updated_at ?? c.updated_at } : c);
+      });
+    },
+  });
 
   const updateStatus = async (psid: string, status: string) => {
     setActionLoading(`status-${psid}`);
@@ -483,6 +527,10 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border">
+              <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-500 animate-pulse" : "bg-red-400"}`} />
+              <span className="text-xs text-muted-foreground">{isConnected ? "Live" : "Reconnecting…"}</span>
+            </div>
             <button onClick={setupPersistentMenu} disabled={menuSetupStatus === "loading"}
               className="text-xs px-3 py-1.5 border border-border rounded-lg hover:bg-secondary transition-colors text-muted-foreground disabled:opacity-50"
               title="Set up Messenger persistent menu">
@@ -565,7 +613,7 @@ function Dashboard({ token, onLogout }: { token: string; onLogout: () => void })
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filtered.map(c => (
-                    <tr key={c.id} className="hover:bg-secondary/40 transition-colors">
+                    <tr key={c.id} className={`transition-colors ${newMessagePsids.has(c.psid) ? "bg-pink-50 ring-1 ring-inset ring-pink-300 animate-pulse" : "hover:bg-secondary/40"}`}>
 
                       {/* Client */}
                       <td className="px-4 py-3">
