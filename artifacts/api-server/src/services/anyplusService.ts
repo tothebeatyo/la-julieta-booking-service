@@ -48,14 +48,19 @@ export interface BookingDetails {
 
 // Service keyword map — edit to match AnyPlusPro's exact service names
 const SERVICE_KEYWORDS: Record<string, string[]> = {
-  acne: ["acne", "acne facial", "acne klear", "pimple", "acneklear"],
-  facial: ["facial", "cleaning", "basic facial", "hydraglow", "oxygeneo", "backne", "underarm spa"],
-  gluta: ["gluta", "drip", "iv drip", "whitening drip", "immune booster", "bella drip", "celestial drip", "snow white", "goddess drip"],
-  anti_aging: ["anti-aging", "anti aging", "hifu", "ultraformer", "thermagic", "rf", "thermage", "exislim"],
-  slimming: ["slimming", "fat dissolve", "lemon bottle", "mesolipo", "fat dissolution"],
-  microneedling: ["microneedling", "bb glow", "prp", "salmon dna", "stretch marks"],
-  laser: ["laser", "skin rejuve", "pico", "carbon peel", "hair removal", "diode"],
-  warts: ["warts", "warts removal"],
+  facial: ["facial", "basic facial", "diamond peel", "hydraglow", "oxygeneo", "backne", "underarm spa"],
+  microneedling: ["microneedling", "bb glow", "korean bb", "prp", "salmon dna", "stretch marks", "acneklear"],
+  warts: ["warts", "wart removal", "wart"],
+  laser: ["laser", "skin rejuve", "pico carbon", "carbon peel", "ua whitening", "ua hair removal", "lips hair"],
+  hair_removal: ["hair removal", "diode", "small area", "medium area", "large area"],
+  emshape: ["emshape", "body sculpt", "tummy sculpt", "arm sculpt"],
+  hifu: ["7d hifu", "ultraforma", "ultraformer", "hifu"],
+  thermagic: ["thermagic", "thermage"],
+  exislim: ["exislim", "exi slim"],
+  lemon_bottle: ["lemon bottle", "fat dissolve", "fat dissolving", "lb fat"],
+  mesolipo: ["mesolipo", "meso lipo"],
+  iv_drip: ["iv drip", "gluta drip", "glutathione", "immune booster", "bella drip", "celestial drip", "snow white drip", "goddess drip"],
+  injectables: ["botox", "filler", "injectable", "injection"],
 };
 
 // Resolve the Chromium executable at startup:

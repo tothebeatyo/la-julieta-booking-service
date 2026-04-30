@@ -1,0 +1,176 @@
+In artifacts/api-server/src/flows/responses.ts
+or wherever SERVICE_PRICES is defined,
+replace ALL service prices with the complete 
+official La Julieta Beauty Center price list:
+
+export const SERVICE_PRICES: Record<string, string> = {
+
+  FACIAL: `🧖 *FACIALS* — Price List (₱)
+
+- Basic Facial — 299
+- Diamond Peel — 499
+- HydraGlow Facial — 999
+- Oxygeneo 3-in-1 Facial — 1,399
+- Backne Facial — 1,599
+- Underarm Spa — 599
+
+Add-ons:
+- Omega PDT Led — 99
+- Hydrating Sheet Mask — 99
+
+Would you like to book? 💕`,
+
+  MICRONEEDLING: `🔬 *MICRONEEDLING* — Price List (₱)
+
+- Korean BB Glow — 599
+- AcneKléar Microneedling — 1,099
+- PRP Microneedling — 1,399
+- Salmon DNA Microneedling — 1,899
+- Stretch Marks Microneedling — 2,099
+
+Add-ons:
+- Korean BB Glow Tint — 199
+- Whitening Stem Cell — 299
+- Hyaluronic Aqua Stem Cell — 299
+
+Would you like to book? 💕`,
+
+  WARTS: `🔬 *WARTS REMOVAL* — Price List (₱)
+
+- Mild — 599
+- Moderate — 799
+- Severe — 999
+
+Would you like to book? 💕`,
+
+  LASER: `✨ *LASER TREATMENTS* — Price List (₱)
+
+- Skin Rejuvè (nape/elbows/knees) — 799
+- Skin Rejuvè Laser Face — 999
+- Pico Carbon Peel Laser — 999
+- Intense UA Whitening Laser — 899
+- Intense UA Hair Removal Laser — 899
+- Upper/Lower Lips Hair Removal — 599
+
+Would you like to book? 💕`,
+
+  HAIR_REMOVAL: `🪒 *DIODE HAIR REMOVAL* — Price List (₱)
+
+- Small Area — 499
+- Medium Area — 899
+- Large Area — 1,299
+
+Would you like to book? 💕`,
+
+  EMSHAPE: `💪 *EMSHAPE™ BODY SCULPT* — Price List (₱)
+
+- Tummy — 999
+- Arms — 1,399
+- Thighs — 1,399
+- Buttocks — 1,399
+
+Would you like to book? 💕`,
+
+  HIFU: `💪 *7D ULTRAFORMA (HIFU)* — Price List (₱)
+
+- Cheeks & Jaw — 1,799
+- Double Chin & Neck — 1,799
+- Full Face — 2,499
+- Full Face, Double Chin & Neck — 2,999
+- Arms — 3,999
+- Tummy — 2,999
+- Love Handle — 2,999
+- Thighs — 3,999
+
+Would you like to book? 💕`,
+
+  THERMAGIC: `✨ *THERMAGIC™* — Price List (₱)
+
+- Eyes (100 shots) — 4,999
+- Forehead (150 shots) — 3,099
+- Cheeks & Chin (400 shots) — 6,999
+- Double Chin & Neck (400 shots) — 6,999
+- Full Face (600 shots) — 8,999
+- Full Face & Neck (900 shots) — 12,999
+- Additional Shot (50) — 600
+
+Would you like to book? 💕`,
+
+  EXISLIM: `⚡ *EXISLIM™* — Price List (₱)
+
+- Cheeks & Jaw — 699
+- Double Chin & Neck — 699
+- Full Face — 1,499
+- Full Face & Neck — 1,899
+- Tummy — 2,499
+- Arms — 1,899
+- Thighs — 1,899
+- Full Back — 2,999
+
+Would you like to book? 💕`,
+
+  LEMON_BOTTLE: `🍋 *LEMON BOTTLE FAT DISSOLVE* — Price List (₱)
+
+- Cheeks & Jaw — 2,099
+- Double Chin — 2,099
+- Arms — 3,999
+- Bra Line — 3,099
+- Thighs — 3,999
+- Tummy — 3,999
+- Love Handle — 3,099
+
+Would you like to book? 💕`,
+
+  MESOLIPO: `✨ *MESOLIPO* — Price List (₱)
+
+- Cheeks & Jaw — 1,099
+- Double Chin — 1,099
+- Arms — 2,099
+- Bra Line — 2,099
+- Thighs — 2,099
+- Tummy — 2,499
+- Love Handle — 2,499
+
+Would you like to book? 💕`,
+
+  IV_DRIP: `💉 *GLUTATHIONE & MULTIVITAMINS IV DRIP* — Price List (₱)
+
+- Immune Booster — 499/session (Package 10+2 FREE: 4,990)
+- Premium Bella Drip — 699/session (Package 10+2 FREE: 6,990)
+- VIP Celestial Drip — 999/session (Package 10+2 FREE: 9,990)
+- Snow White Drip — 1,299/session (Package 10+2 FREE: 12,990)
+- Ultimate Goddess Drip — 1,199/session (Package 10+2 FREE: 11,990)
+- Ultimate Snow White Drip — 1,599/session (Package 10+2 FREE: 15,990)
+
+Add-on Boosters:
+- Vitamin C — 199
+- B-Complex — 299
+- Collagen — 399
+- Placenta — 499
+- L-Carnitine — 599
+
+Would you like to book? 💕`,
+
+  INJECTABLES: `💉 *INJECTABLES* — Price List (₱)
+
+- Botox Full Face — 5,000
+- Botox Glabellar Area — 4,000
+- Botox Lower Face — 5,000
+- Botox Upper Face — 5,000
+- Doctor's Consultation — 500
+
+⚠️ Safety screening required before booking.
+
+Would you like to proceed? 💕`,
+
+};
+
+Also update the SERVICE_KEYWORDS map to include 
+all new services:
+
+export const SERVICE_KEYWORDS: Record<string, string[]> = {
+  FACIAL: ["facial", "basic facial", "diamond peel", "hydraglow", "oxygeneo", "backne", "underarm spa"],
+  MICRONEEDLING: ["microneedling", "bb glow", "korean bb", "prp", "salmon dna", "stretch marks", "acneklear"],
+  WARTS: ["warts", "wart removal", "wart"],
+  LASER: ["laser", "skin rejuve", "pico carbon", "carbon peel", "ua whitening", "ua hair removal", "lips hair"],
+  HAIR_REMOVAL: ["hair rem

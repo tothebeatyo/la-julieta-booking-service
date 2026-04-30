@@ -712,7 +712,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     // 1. Simple explanation
     await sendWithDelay(
       psid,
-      `🍋 What is Lemon Bottle?\n\nIt's a premium fat-dissolving injection made with Riboflavin (B2), Bromelain, and Lecithin. It breaks down fat cells quickly — targeting double chin, arms, tummy, love handles, and thighs.\n\n✅ Fast-acting — visible results in 1–2 sessions\n✅ Minimal swelling\n✅ Almost zero downtime\n✅ Promo rate: ₱567/mL 💕`,
+      `🍋 What is Lemon Bottle?\n\nIt's a premium fat-dissolving injection made with Riboflavin (B2), Bromelain, and Lecithin. It breaks down fat cells quickly — targeting double chin, arms, tummy, love handles, and thighs.\n\n✅ Fast-acting — visible results in 1–2 sessions\n✅ Minimal swelling\n✅ Almost zero downtime\n\nPer-area pricing:\n- Cheeks & Jaw / Double Chin — ₱2,099\n- Bra Line / Love Handle — ₱3,099\n- Arms / Thighs / Tummy — ₱3,999 💕`,
       1200,
     );
 
@@ -753,7 +753,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     // 1. Simple explanation
     await sendWithDelay(
       psid,
-      `💉 What is Mesolipo?\n\nMesolipo is a precise cocktail of fat-dissolving agents injected directly into targeted fat pockets. Perfect for:\n✔️ Cheeks, jaw, and double chin contouring\n✔️ Arms, bra line, and love handles\n✔️ Tummy and thigh slimming\n\n✅ Precise and targeted — works on smaller, stubborn areas\n✅ Visible contouring in as little as 2–4 weeks\n✅ Non-surgical, minimal downtime\n✅ Starting at ₱1,099 per area 💕`,
+      `💉 What is Mesolipo?\n\nMesolipo is a precise cocktail of fat-dissolving agents injected directly into targeted fat pockets. Perfect for:\n✔️ Cheeks, jaw, and double chin contouring\n✔️ Arms, bra line, and love handles\n✔️ Tummy and thigh slimming\n\n✅ Precise and targeted — works on smaller, stubborn areas\n✅ Visible contouring in as little as 2–4 weeks\n✅ Non-surgical, minimal downtime\n\nPer-area pricing:\n- Cheeks & Jaw / Double Chin — ₱1,099\n- Arms / Bra Line / Thighs — ₱2,099\n- Tummy / Love Handle — ₱2,499 💕`,
       1200,
     );
 
@@ -890,7 +890,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Facial Treatment", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `🧖 *FACIAL TREATMENTS* — Price List (₱)\n\n- Basic Facial — 299\n- HydraFacial — 999\n- Whitening Facial — 799\n- Acne Facial — 699\n- Korean Glass Skin Facial — 899\n\nAdd-ons:\n- LED Light Therapy — 199\n- Oxygen Infusion — 299`,
+      `🧖 *FACIALS* — Price List (₱)\n\n- Basic Facial — 299\n- Diamond Peel — 499\n- HydraGlow Facial — 999\n- Oxygeneo 3-in-1 Facial — 1,399\n- Backne Facial — 1,599\n- Underarm Spa — 599\n\nAdd-ons:\n- Omega PDT Led — 99\n- Hydrating Sheet Mask — 99\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_FACIAL" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -907,7 +907,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Microneedling", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `🔬 *MICRONEEDLING* — Price List (₱)\n\n- Korean BB Glow — 599\n- AcneKléar Microneedling — 1,099\n- PRP Microneedling — 1,399\n- Salmon DNA Microneedling — 1,899\n- Stretch Marks Microneedling — 2,099\n\nAdd-ons:\n- Korean BB Glow Tint — 199\n- Whitening Stem Cell — 299\n- Hyaluronic Aqua Stem Cell — 299`,
+      `🔬 *MICRONEEDLING* — Price List (₱)\n\n- Korean BB Glow — 599\n- AcneKléar Microneedling — 1,099\n- PRP Microneedling — 1,399\n- Salmon DNA Microneedling — 1,899\n- Stretch Marks Microneedling — 2,099\n\nAdd-ons:\n- Korean BB Glow Tint — 199\n- Whitening Stem Cell — 299\n- Hyaluronic Aqua Stem Cell — 299\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_MICRONEEDLING" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -924,7 +924,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Laser Treatment", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `✨ *LASER TREATMENTS* — Price List (₱)\n\n- Carbon Laser Peel — 799\n- Pico Laser — 1,299\n- Fractional CO2 Laser — 2,499\n- Skin Rejuvenation Laser — 999\n- Laser Hair Reduction (small area) — 499`,
+      `✨ *LASER TREATMENTS* — Price List (₱)\n\n- Skin Rejuvè (nape/elbows/knees) — 799\n- Skin Rejuvè Laser Face — 999\n- Pico Carbon Peel Laser — 999\n- Intense UA Whitening Laser — 899\n- Intense UA Hair Removal Laser — 899\n- Upper/Lower Lips Hair Removal — 599\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_LASER" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -941,7 +941,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Hair Removal", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `🪒 *LASER HAIR REMOVAL* — Price List (₱)\n\n- Underarm — 499\n- Arms (half) — 799\n- Arms (full) — 1,299\n- Legs (half) — 999\n- Legs (full) — 1,799\n- Bikini Line — 799\n- Full Body — 3,999`,
+      `🪒 *DIODE HAIR REMOVAL* — Price List (₱)\n\n- Small Area — 499\n- Medium Area — 899\n- Large Area — 1,299\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_HAIR_REMOVAL" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -958,7 +958,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "HIFU Tightening", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `💪 *HIFU / SKIN TIGHTENING* — Price List (₱)\n\n- Ultraformer MP2 7D HIFU\n  • Cheeks & Jaw — 1,588\n  • Double Chin & Neck — 1,588\n  • Full Face — 1,888\n  • Full Face & Neck — 2,888\n  • Bra Line / Love Handle — 2,888\n  • Tummy / Arms / Legs — 3,488\n\n- Thermagic RF Tightening — 2,999\n- ExiSlim Body Contouring — 1,999`,
+      `💪 *SKIN TIGHTENING / HIFU* — Price List (₱)\n\n7D Ultraforma (HIFU):\n- Cheeks & Jaw — 1,799\n- Double Chin & Neck — 1,799\n- Full Face — 2,499\n- Full Face + Double Chin & Neck — 2,999\n- Arms — 3,999\n- Tummy / Love Handle — 2,999\n- Thighs — 3,999\n\nThermagic:\n- Eyes (100 shots) — 4,999\n- Forehead (150 shots) — 3,099\n- Cheeks & Chin (400 shots) — 6,999\n- Full Face (600 shots) — 8,999\n- Full Face & Neck (900 shots) — 12,999\n\nExiSlim:\n- Cheeks & Jaw — 699\n- Double Chin & Neck — 699\n- Full Face — 1,499\n- Full Face & Neck — 1,899\n- Tummy — 2,499\n- Arms / Thighs — 1,899\n- Full Back — 2,999\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_HIFU" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -975,7 +975,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Slimming Treatment", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `⚡ *SLIMMING TREATMENTS* — Price List (₱)\n\n- Lemon Bottle Fat Dissolve — 567/mL\n- Mesolipo — 1,099/area\n- ExiSlim Body Contouring — 1,999\n\nTargeted areas: Double chin, arms, tummy, love handles, thighs 💕`,
+      `⚡ *SLIMMING TREATMENTS* — Price List (₱)\n\nLemon Bottle Fat Dissolve:\n- Cheeks & Jaw — 2,099\n- Double Chin — 2,099\n- Arms — 3,999\n- Bra Line — 3,099\n- Thighs — 3,999\n- Tummy — 3,999\n- Love Handle — 3,099\n\nMesolipo:\n- Cheeks & Jaw — 1,099\n- Double Chin — 1,099\n- Arms — 2,099\n- Bra Line — 2,099\n- Thighs — 2,099\n- Tummy — 2,499\n- Love Handle — 2,499\n\nWould you like to book? 💕`,
       [
         { title: "🍋 Lemon Bottle",     payload: "INTENT_LEMON_BOTTLE" },
         { title: "💉 Mesolipo",         payload: "INTENT_MESOLIPO" },
@@ -993,7 +993,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Lemon Bottle Fat Dissolve", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `🍋 *LEMON BOTTLE FAT DISSOLVE* — Price List (₱)\n\n- Promo Rate: ₱567/mL\n\nFast-acting fat dissolve injection made with Riboflavin (B2), Bromelain, and Lecithin. Targets double chin, arms, tummy, love handles, and thighs.\n\n✅ Visible results in 1–2 sessions\n✅ Minimal swelling, zero downtime`,
+      `🍋 *LEMON BOTTLE FAT DISSOLVE* — Price List (₱)\n\n- Cheeks & Jaw — 2,099\n- Double Chin — 2,099\n- Arms — 3,999\n- Bra Line — 3,099\n- Thighs — 3,999\n- Tummy — 3,999\n- Love Handle — 3,099\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_LEMON_BOTTLE" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -1010,7 +1010,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Mesolipo", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `✨ *MESOLIPO* — Price List (₱)\n\n- Starting at ₱1,099/area\n\nPrecise fat-dissolving cocktail injected into targeted pockets. Perfect for cheeks, jaw, double chin, arms, bra line, love handles, tummy, and thighs.\n\n✅ Visible contouring in 2–4 weeks\n✅ Non-surgical, minimal downtime`,
+      `✨ *MESOLIPO* — Price List (₱)\n\n- Cheeks & Jaw — 1,099\n- Double Chin — 1,099\n- Arms — 2,099\n- Bra Line — 2,099\n- Thighs — 2,099\n- Tummy — 2,499\n- Love Handle — 2,499\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_MESOLIPO" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -1027,7 +1027,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "IV Drip", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `💉 *IV DRIP* — Price List (₱)\n\n- Bella Drip (Glutathione) — 799\n- Celestial Drip (High-dose Gluta) — 1,299\n- Snow White Drip — 1,499\n- Goddess Drip (Premium) — 1,799\n- Immune Booster — 599\n- Vitamin C IV — 499\n\n✨ Buy 10 sessions, get 4 FREE (14 total)!`,
+      `💉 *GLUTATHIONE & MULTIVITAMINS IV DRIP* — Price List (₱)\n\n- Immune Booster — 499/session (Package 10+2 FREE: 4,990)\n- Premium Bella Drip — 699/session (Package 10+2 FREE: 6,990)\n- VIP Celestial Drip — 999/session (Package 10+2 FREE: 9,990)\n- Snow White Drip — 1,299/session (Package 10+2 FREE: 12,990)\n- Ultimate Goddess Drip — 1,199/session (Package 10+2 FREE: 11,990)\n- Ultimate Snow White Drip — 1,599/session (Package 10+2 FREE: 15,990)\n\nAdd-on Boosters:\n- Vitamin C — 199\n- B-Complex — 299\n- Collagen — 399\n- Placenta — 499\n- L-Carnitine — 599\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",              payload: "BOOK_IV_DRIP" },
         { title: "⚠️ Safety Check First",    payload: "SAFETY_INJECTABLES" },
@@ -1045,7 +1045,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Warts Removal", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `🔬 *WARTS REMOVAL* — Price List (₱)\n\n- Small Warts (1–5 pcs) — 299\n- Medium Warts (6–15 pcs) — 499\n- Large/Multiple Warts — 799\n- Body Area Package — 999\n\n✅ Quick procedure, minimal downtime\n✅ Safe and effective`,
+      `🔬 *WARTS REMOVAL* — Price List (₱)\n\n- Mild — 599\n- Moderate — 799\n- Severe — 999\n\nWould you like to book? 💕`,
       [
         { title: "📅 Book This",        payload: "BOOK_WARTS" },
         { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
@@ -1079,7 +1079,7 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     upsertClient({ psid, service: "Injectables", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `💉 *INJECTABLES & GLUTA* — Price List (₱)\n\n- Glutathione IV Drip — 799\n- Botox (per unit) — 199\n- Fillers (per syringe) — 8,999\n- PRP Treatment — 3,999\n\n⚠️ Safety screening required before booking injectable treatments.`,
+      `💉 *INJECTABLES* — Price List (₱)\n\n- Botox Full Face — 5,000\n- Botox Glabellar Area — 4,000\n- Botox Lower Face — 5,000\n- Botox Upper Face — 5,000\n- Doctor's Consultation — 500\n\n⚠️ Safety screening required before booking.\n\nWould you like to proceed? 💕`,
       [
         { title: "📅 Book This",              payload: "BOOK_INJECTABLES" },
         { title: "⚠️ Safety Check First",    payload: "SAFETY_INJECTABLES" },
