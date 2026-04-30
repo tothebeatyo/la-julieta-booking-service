@@ -966,58 +966,48 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
   if (isConfirm) {
     const s = getSession(psid);
 
-    // Immediately tell user we're processing
-    await sendTypingOn(psid);
-    await sendText(
+    // Notify client we are booking
+    await sendWithDelay(
       psid,
-      `✅ Booking request received! 🎉\n\n` +
-      `We're now processing your appointment for ${s.service} on ${s.date} at ${s.time}. ` +
-      `Our staff will reach out to confirm shortly 💖\n\n` +
-      `Salamat and see you soon at La Julieta Beauty Parañaque! 🌸`
-    );
-    await sendTypingOff(psid);
-
-    const sessionSnapshot = { ...s };
-    resetSession(psid);
-
-    // Show follow-up menu while automation runs in background
-    await sendWithDelayAndQuickReplies(
-      psid,
-      "Is there anything else I can help you with? 😊",
-      INTENT_QUICK_REPLIES,
-      800,
+      "⏳ Perfect! We're booking your appointment now, please wait a moment...",
+      500,
     );
 
-    // Run AnyPlusPro automation in background (non-blocking)
-    createReservation({
-      psid,
-      service: sessionSnapshot.service!,
-      date: sessionSnapshot.date!,
-      time: sessionSnapshot.time!,
-      name: sessionSnapshot.name!,
-      mobile: sessionSnapshot.mobile!,
-      email: sessionSnapshot.email,
-      emailConsent: sessionSnapshot.emailConsent,
-      concern: sessionSnapshot.concern,
-      channel: sessionSnapshot.channel,
-    }).then(async (result) => {
-      if (result.success) {
-        logger.info({ psid, referenceNo: result.referenceNo }, "AnyPlusPro booking completed");
-        // Send reference number as follow-up message
-        await sendText(
-          psid,
-          `✅ Great news! Your appointment has been confirmed 🎉\n\nReference No: ${result.referenceNo}\n\nWatch out for a confirmation text. See you soon! 💕`,
-        ).catch(() => {});
-      } else {
-        logger.warn({ psid, error: result.error }, "AnyPlusPro booking failed — manual required");
-        await sendText(
-          psid,
-          `Our team has received your booking request 💖 A staff member will reach out within a few hours to confirm your schedule. If urgent, tap "Talk to Agent" below 😊`,
-        ).catch(() => {});
-      }
-    }).catch((err) => {
+    // Trigger auto booking (awaited — synchronous)
+    let bookingResult: { success: boolean; referenceNo?: string; error?: string; screenshotPath?: string };
+    try {
+      bookingResult = await createReservation({
+        psid,
+        service: s.service!,
+        date: s.date!,
+        time: s.time!,
+        name: s.name ?? "Client",
+        mobile: s.mobile!,
+        email: s.email,
+        emailConsent: s.emailConsent,
+        concern: s.concern,
+        channel: s.channel,
+      });
+    } catch (err) {
       logger.error({ err, psid }, "AnyPlusPro automation error");
-    });
+      bookingResult = { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
+
+    if (bookingResult.success) {
+      await sendWithDelay(
+        psid,
+        `🎉 You're all set! Your ${s.service} is booked for ${s.date} at ${s.time}. See you at La Julieta Beauty Center! 💕`,
+        800,
+      );
+      setSession(psid, { step: "idle" });
+    } else {
+      await sendWithDelay(
+        psid,
+        "💕 Thank you! Our team will confirm your appointment shortly. You'll receive a message within 1 hour!",
+        800,
+      );
+      resetSession(psid);
+    }
 
   } else if (isEdit) {
     setSession(psid, {
