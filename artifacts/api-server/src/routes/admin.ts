@@ -3,6 +3,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { retryAutoBooking, createReservation, autoBook } from "../services/anyplusService";
+import { sendText } from "../services/messengerService";
 
 const router: IRouter = Router();
 
@@ -186,6 +187,30 @@ router.get("/clients/:psid/messages", authMiddleware as unknown as (req: Request
   } catch (err) {
     logger.error({ err }, "Error fetching messages");
     res.status(500).json({ error: "Failed to fetch messages", messages: [], total: 0 });
+  }
+});
+
+// POST /api/admin/clients/:psid/send-message
+// Send a manual reply from the admin dashboard to a client via Messenger/Instagram
+router.post("/clients/:psid/send-message", authMiddleware as unknown as (req: Request, res: Response) => void, async (req: Request, res: Response) => {
+  try {
+    const { psid } = req.params;
+    const { message } = req.body as { message?: string };
+
+    if (!message?.trim()) {
+      res.status(400).json({ error: "message is required" });
+      return;
+    }
+
+    const text = message.trim();
+
+    await sendText(psid, text);
+    logger.info({ psid, length: text.length }, "Admin sent manual reply");
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "Failed to send admin reply");
+    res.status(500).json({ error: "Failed to send message", detail: String(err) });
   }
 });
 

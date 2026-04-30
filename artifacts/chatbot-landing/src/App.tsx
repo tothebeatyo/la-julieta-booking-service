@@ -257,6 +257,9 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -281,6 +284,39 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
       })
       .finally(() => setLoading(false));
   }, [client.psid, token]);
+
+  const sendReply = async () => {
+    const text = replyText.trim();
+    if (!text) return;
+    setSendingReply(true);
+    setSendError(null);
+    try {
+      const r = await fetch(`/api/admin/clients/${client.psid}/send-message`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ message: text }),
+      });
+      if (!r.ok) {
+        const err = await r.json() as { error?: string };
+        setSendError(err.error ?? `Error ${r.status}`);
+        return;
+      }
+      setReplyText("");
+      // Optimistically add the sent message to the list
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        psid: client.psid,
+        direction: "outbound",
+        content: text,
+        created_at: new Date().toISOString(),
+      }]);
+      setTimeout(scrollToBottom, 50);
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   useWebSocket({
     new_message: (data) => {
@@ -369,13 +405,36 @@ function MessageDrawer({ client, token, onClose }: { client: Client; token: stri
         </div>
 
         {client.anypluspro_screenshot && (
-          <div className="border-t border-border px-5 py-3">
+          <div className="border-t border-border px-5 py-2">
             <a href={`/${client.anypluspro_screenshot}`} target="_blank" rel="noopener noreferrer"
               className="text-xs text-primary hover:underline">📸 View AnyPlusPro Screenshot</a>
           </div>
         )}
-        <div className="border-t border-border px-5 py-3">
-          <p className="text-xs text-muted-foreground">
+
+        {/* Reply box */}
+        <div className="border-t border-border bg-background">
+          {sendError && (
+            <p className="text-xs text-red-500 px-4 pt-2">⚠️ {sendError}</p>
+          )}
+          <div className="flex items-center gap-2 px-4 py-3">
+            <input
+              type="text"
+              value={replyText}
+              onChange={e => setReplyText(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void sendReply(); } }}
+              placeholder="Type a reply…"
+              disabled={sendingReply}
+              className="flex-1 border border-border rounded-full px-4 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
+            />
+            <button
+              onClick={() => void sendReply()}
+              disabled={sendingReply || !replyText.trim()}
+              className="shrink-0 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+            >
+              {sendingReply ? "…" : "Send"}
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground px-4 pb-2">
             {messages.length} messages · First contact: {new Date(client.created_at).toLocaleDateString("en-PH")}
           </p>
         </div>
