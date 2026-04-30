@@ -52,7 +52,8 @@ app.use("/logs/screenshots", express.static(screenshotsDir));
 // Serve the React frontend (chatbot-landing) build output
 // Resolve relative to this file's location so it works in both dev (src/) and production (dist/)
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const publicDir = path.resolve(currentDir, "../../chatbot-landing/dist/public");
+const publicDir = process.env["FRONTEND_DIST_PATH"]
+  ?? path.resolve(currentDir, "../../chatbot-landing/dist/public");
 logger.info({ publicDir }, "Static files directory");
 
 if (existsSync(publicDir)) {
