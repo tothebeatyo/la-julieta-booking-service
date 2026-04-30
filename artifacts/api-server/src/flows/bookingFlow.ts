@@ -1466,6 +1466,7 @@ async function handleFinalConfirmation(psid: string, text: string, payload?: str
           emailConsent: s.emailConsent,
           concern: s.concern,
           channel: s.channel,
+          clientType: (s.clientType as "Old" | "New" | undefined) ?? "New",
         }),
         timeoutPromise,
       ]);

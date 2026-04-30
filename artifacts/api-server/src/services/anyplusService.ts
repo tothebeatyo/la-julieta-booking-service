@@ -27,6 +27,7 @@ export interface BookingPayload {
   notes?: string;
   concern?: string;
   channel?: "messenger" | "instagram";
+  clientType?: "Old" | "New";
 }
 
 export interface BookingResult {
@@ -115,6 +116,86 @@ async function launchBrowser(): Promise<Browser> {
   });
 }
 
+// ─── Register a new patient on the AnyPlusPro form ───────────────────────────
+
+async function registerNewPatient(page: Page, payload: BookingPayload): Promise<void> {
+  const nameParts = payload.name.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? payload.name;
+  const lastName = nameParts.slice(1).join(" ") || "-";
+
+  // Wait for first-name field
+  await page.waitForSelector('input[placeholder="First name"], input[placeholder*="first" i]', {
+    state: "visible",
+    timeout: 10000,
+  });
+
+  const firstNameInput = page.locator('input[placeholder="First name"], input[placeholder*="first" i]').first();
+  if (await firstNameInput.isVisible({ timeout: 3000 }).catch(() => false)) await firstNameInput.fill(firstName);
+
+  const lastNameInput = page.locator('input[placeholder="Last name"], input[placeholder*="last" i]').first();
+  if (await lastNameInput.isVisible({ timeout: 3000 }).catch(() => false)) await lastNameInput.fill(lastName);
+
+  // Mobile number
+  if (payload.mobile) {
+    await page.evaluate((mobile: string) => {
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+      const mobileInput = inputs.find(
+        (i) =>
+          i.placeholder?.includes("9XX") ||
+          i.type === "tel" ||
+          i.placeholder?.toLowerCase().includes("mobile") ||
+          i.placeholder?.toLowerCase().includes("phone"),
+      );
+      if (mobileInput) {
+        mobileInput.value = mobile;
+        mobileInput.dispatchEvent(new Event("input", { bubbles: true }));
+        mobileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }, payload.mobile);
+  }
+
+  // Lead source — prefer Facebook / Instagram option
+  await page.evaluate((channel: string | undefined) => {
+    const selects = Array.from(document.querySelectorAll<HTMLSelectElement>("select"));
+    for (const select of selects) {
+      const label = select.closest("div")?.textContent?.toLowerCase() ?? "";
+      if (label.includes("lead source") || label.includes("how did")) {
+        const preferred = channel === "instagram" ? /instagram/i : /facebook|social|online/i;
+        const opt = Array.from(select.options).find((o) => preferred.test(o.text));
+        if (opt) select.value = opt.value;
+        else if (select.options.length > 1) select.selectedIndex = 1;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        break;
+      }
+    }
+  }, payload.channel);
+
+  // Notes
+  await page.evaluate((details: { service: string; date: string; time: string; clientType?: string }) => {
+    const textareas = Array.from(document.querySelectorAll<HTMLTextAreaElement>("textarea"));
+    const notes = textareas.find(
+      (t) => t.placeholder?.toLowerCase().includes("note") || t.placeholder?.toLowerCase().includes("additional"),
+    );
+    if (notes) {
+      notes.value = `Booked via Facebook Messenger. Service: ${details.service}. Date: ${details.date} at ${details.time}. Client type: ${details.clientType ?? "New"}.`;
+      notes.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, { service: payload.service, date: payload.date, time: payload.time, clientType: payload.clientType });
+
+  await takeScreenshot(page, "register-form-filled");
+
+  // Submit patient registration
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
+    const btn = buttons.find((b) => /register patient|register/i.test(b.textContent ?? ""));
+    if (btn) btn.click();
+  });
+
+  await page.waitForTimeout(3000);
+  await takeScreenshot(page, "patient-registered");
+  logger.info("AnyPlusPro: patient registration submitted");
+}
+
 // ─── Main booking automation ──────────────────────────────────────────────────
 
 export async function createReservation(payload: BookingPayload): Promise<BookingResult> {
@@ -201,86 +282,64 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
     screenshotPath = await takeScreenshot(page, "04_book_appointment_modal");
 
-    // ── Step 5: Search patient by mobile ─────────────────────────────────────
-    const nameParts = payload.name.trim().split(/\s+/);
-    const firstName = nameParts[0] ?? payload.name;
-    const lastName = nameParts.slice(1).join(" ") || firstName;
+    // ── Step 5 & 6: Handle patient — Old (search existing) vs New (register) ───
+    const isOldClient = /old/i.test(payload.clientType ?? "new");
 
-    const searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="patient" i], input[placeholder*="mobile" i], input[placeholder*="phone" i]').first();
-    if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await searchInput.fill(payload.mobile);
-      await page.waitForTimeout(1500);
-    }
+    if (isOldClient) {
+      // ── OLD CLIENT — search by name ────────────────────────────────────
+      logger.info({ name: payload.name }, "AnyPlusPro: searching existing patient");
+      const nameParts = payload.name.trim().split(/\s+/);
+      const firstName = nameParts[0] ?? payload.name;
 
-    // Check if patient found
-    const patientResult = page.locator(`text="${payload.mobile}", text="${payload.name}"`).first();
-    const patientFound = await patientResult.isVisible({ timeout: 3000 }).catch(() => false);
+      const searchInput = await page.$(
+        'input[placeholder*="Search by name"], input[placeholder*="name, phone, or email"], input[placeholder*="search" i], input[placeholder*="patient" i]',
+      );
 
-    if (patientFound) {
-      await patientResult.click();
-      logger.info("AnyPlusPro: patient found and selected");
-    } else {
-      // ── Step 6: Register new patient ─────────────────────────────────────
-      const registerBtn = page.locator('button:has-text("Register"), button:has-text("New Patient"), button:has-text("Add Patient"), button:has-text("Register New")').first();
-      if (await registerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await registerBtn.click();
-        await page.waitForTimeout(1000);
-      }
+      if (searchInput) {
+        await searchInput.type(firstName);
+        await page.waitForTimeout(2000);
+        screenshotPath = await takeScreenshot(page, "05_patient_search_results");
 
-      screenshotPath = await takeScreenshot(page, "05_register_patient");
-
-      // Fill patient fields
-      const firstNameInput = page.locator('input[name*="first" i], input[placeholder*="first name" i]').first();
-      if (await firstNameInput.isVisible({ timeout: 3000 }).catch(() => false)) await firstNameInput.fill(firstName);
-
-      const lastNameInput = page.locator('input[name*="last" i], input[placeholder*="last name" i]').first();
-      if (await lastNameInput.isVisible({ timeout: 3000 }).catch(() => false)) await lastNameInput.fill(lastName);
-
-      const mobileInput = page.locator('input[name*="mobile" i], input[name*="phone" i], input[placeholder*="mobile" i]').first();
-      if (await mobileInput.isVisible({ timeout: 3000 }).catch(() => false)) await mobileInput.fill(payload.mobile);
-
-      if (payload.email) {
-        const emailInput = page.locator('input[type="email"], input[name*="email" i]').first();
-        if (await emailInput.isVisible({ timeout: 3000 }).catch(() => false)) await emailInput.fill(payload.email);
-      }
-
-      // Lead source
-      const leadSourceInput = page.locator('select[name*="lead" i], input[placeholder*="lead" i]').first();
-      if (await leadSourceInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        const sourceLabel = payload.channel === "messenger" ? "Facebook Messenger" : "Facebook";
-        const tagName = await leadSourceInput.evaluate((el) => el.tagName.toLowerCase());
-        if (tagName === "select") {
-          await leadSourceInput.selectOption({ label: sourceLabel }).catch(() =>
-            leadSourceInput.selectOption({ label: "Facebook" }).catch(() => {})
+        const hasResults = await page.evaluate(() => {
+          const results = document.querySelectorAll(
+            '[class*="result"], [class*="option"], [class*="patient"], [class*="suggestion"]',
           );
+          return results.length > 0;
+        });
+
+        if (hasResults) {
+          await page.evaluate((name: string) => {
+            const results = Array.from(document.querySelectorAll<HTMLElement>(
+              '[class*="result"], [class*="option"], [class*="patient"], [class*="suggestion"]',
+            ));
+            const exact = results.find((r) => r.textContent?.toLowerCase().includes(name.toLowerCase()));
+            if (exact) exact.click();
+            else if (results[0]) results[0].click();
+          }, firstName);
+          await page.waitForTimeout(1000);
+          screenshotPath = await takeScreenshot(page, "05b_patient_selected");
+          logger.info("AnyPlusPro: existing patient selected");
         } else {
-          await leadSourceInput.fill(sourceLabel);
+          // Not found — fall back to new registration
+          logger.warn({ name: payload.name }, "AnyPlusPro: patient not found — registering as new");
+          await page.keyboard.press("Control+a");
+          await page.keyboard.press("Backspace");
+          await registerNewPatient(page, payload);
+          screenshotPath = await takeScreenshot(page, "06_patient_registered_fallback");
         }
       }
-
-      // Patient manager
-      const patientManagerInput = page.locator('select[name*="manager" i], input[placeholder*="manager" i], input[placeholder*="staff" i]').first();
-      if (await patientManagerInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-        const tagName = await patientManagerInput.evaluate((el) => el.tagName.toLowerCase());
-        if (tagName === "select") {
-          await patientManagerInput.selectOption({ label: defaultStaff }).catch(() => {});
-        } else {
-          await patientManagerInput.fill(defaultStaff);
-        }
-      }
-
-      // Notes
-      const noteChannel = payload.channel === "instagram" ? "Instagram DM" : "Facebook Messenger";
-      const patientNotes = `Created from ${noteChannel} AI Bot. Concern: ${payload.concern ?? payload.service}. User Name: ${payload.name}. Email consent: ${payload.emailConsent ? "yes" : "no"}.`;
-      const notesInput = page.locator('textarea[name*="note" i], textarea[placeholder*="note" i]').first();
-      if (await notesInput.isVisible({ timeout: 3000 }).catch(() => false)) await notesInput.fill(patientNotes);
-
-      // Submit patient registration
-      const saveBtn = page.locator('button[type="submit"]:has-text("Save"), button:has-text("Register"), button:has-text("Create Patient")').first();
-      if (await saveBtn.isVisible({ timeout: 3000 }).catch(() => false)) await saveBtn.click();
-      await page.waitForTimeout(1500);
+    } else {
+      // ── NEW CLIENT — click "Register New" then fill form ──────────────
+      logger.info({ name: payload.name }, "AnyPlusPro: registering new patient");
+      await page.evaluate(() => {
+        const elements = Array.from(document.querySelectorAll<HTMLElement>("button, a, span, div"));
+        const el = elements.find((e) => e.textContent?.trim().toLowerCase().includes("register new"));
+        if (el) el.click();
+      });
+      await page.waitForTimeout(2000);
+      screenshotPath = await takeScreenshot(page, "05_register_new_form");
+      await registerNewPatient(page, payload);
       screenshotPath = await takeScreenshot(page, "06_patient_registered");
-      logger.info("AnyPlusPro: new patient registered");
     }
 
     // ── Step 7: Search and select service ────────────────────────────────────
@@ -289,13 +348,40 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
       ? (SERVICE_KEYWORDS[serviceMatch]?.[0] ?? payload.service)
       : payload.service;
 
-    const serviceInput = page.locator('input[placeholder*="service" i], input[name*="service" i]').first();
-    if (await serviceInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await serviceInput.fill(serviceSearchTerm);
+    // Use first word only for a broader search (e.g. "facial" from "facial cleaning")
+    const serviceKeyword = serviceSearchTerm
+      .replace(/treatment|therapy|procedure/gi, "")
+      .trim()
+      .split(/\s+/)[0] ?? serviceSearchTerm;
+
+    const serviceSearchInput = await page.$(
+      'input[placeholder*="Search services"], input[placeholder*="service" i], input[name*="service" i]',
+    );
+
+    if (serviceSearchInput) {
+      await serviceSearchInput.type(serviceKeyword);
+      await page.waitForTimeout(2000);
+      screenshotPath = await takeScreenshot(page, "07_service_search_results");
+
+      await page.evaluate((keyword: string) => {
+        const results = Array.from(document.querySelectorAll<HTMLElement>(
+          '[class*="service"], [class*="result"], [class*="option"], [class*="item"]',
+        ));
+        const match = results.find((r) => r.textContent?.toLowerCase().includes(keyword.toLowerCase()));
+        if (match) match.click();
+        else if (results[0]) results[0].click();
+      }, serviceKeyword);
+
       await page.waitForTimeout(1000);
-      const serviceOption = page.locator(`[role="option"]:has-text("${serviceSearchTerm}"), li:has-text("${serviceSearchTerm}")`).first();
-      if (await serviceOption.isVisible({ timeout: 3000 }).catch(() => false)) {
-        await serviceOption.click();
+      screenshotPath = await takeScreenshot(page, "07b_service_selected");
+    } else {
+      // Fallback to locator approach
+      const serviceLocator = page.locator('input[placeholder*="service" i], input[name*="service" i]').first();
+      if (await serviceLocator.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await serviceLocator.fill(serviceKeyword);
+        await page.waitForTimeout(1000);
+        const serviceOption = page.locator(`[role="option"]:has-text("${serviceKeyword}"), li:has-text("${serviceKeyword}")`).first();
+        if (await serviceOption.isVisible({ timeout: 3000 }).catch(() => false)) await serviceOption.click();
       }
     }
 
@@ -337,10 +423,16 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     }
 
     // ── Step 10: Submit booking ───────────────────────────────────────────────
-    await page.click('button[type="submit"]:has-text("Book"), button:has-text("Book Appointment"), button:has-text("Confirm"), button:has-text("Save Appointment")', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("button"));
+      const submitBtn = buttons.find((b) =>
+        /book appointment|book|confirm|save/i.test(b.textContent ?? ""),
+      );
+      if (submitBtn) submitBtn.click();
+    });
+    await page.waitForTimeout(3000);
     await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
-    screenshotPath = await takeScreenshot(page, "08_after_submit");
+    screenshotPath = await takeScreenshot(page, "08_booking_submitted");
 
     // ── Step 11: Detect success ───────────────────────────────────────────────
     const pageContent = await page.content();

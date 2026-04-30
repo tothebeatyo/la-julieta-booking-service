@@ -1,0 +1,231 @@
+In artifacts/api-server/src/services/anyplusService.ts,
+update the autoBook function to handle Old vs New 
+clients differently, and use the correct 
+"Book Appointment" button we can now see.
+
+STEP 1 — Handle Old Client (search existing patient)
+vs New Client (register new patient)
+
+Replace the patient handling section with this:
+
+const isOldClient = /old/i.test(details.clientType ?? "new");
+
+if (isOldClient) {
+  // ── OLD CLIENT — Search existing patient ──────
+  logger.info({ name: details.name }, "Searching existing patient");
+  
+  // Search by first name or last name
+  const nameParts = details.name.trim().split(" ");
+  const firstName = nameParts[0] ?? details.name;
+  const lastName = nameParts.slice(1).join(" ") ?? "";
+
+  // Try searching by full name first
+  const searchInput = await page.$(
+    'input[placeholder*="Search by name"], input[placeholder*="name, phone, or email"]'
+  );
+  
+  if (searchInput) {
+    await searchInput.type(firstName);
+    await page.waitForTimeout(2000);
+    await takeScreenshot(page, "patient-search-results");
+
+    // Check if any results appeared
+    const hasResults = await page.evaluate(() => {
+      const results = document.querySelectorAll(
+        '[class*="result"], [class*="option"], [class*="patient"], [class*="suggestion"]'
+      );
+      return results.length > 0;
+    });
+
+    if (hasResults) {
+      // Click first matching result
+      await page.evaluate((name) => {
+        const results = Array.from(document.querySelectorAll(
+          '[class*="result"], [class*="option"], [class*="patient"], [class*="suggestion"]'
+        ));
+        // Try to find exact name match first
+        const exact = results.find(r => 
+          r.textContent?.toLowerCase().includes(name.toLowerCase())
+        );
+        if (exact) (exact as HTMLElement).click();
+        else if (results[0]) (results[0] as HTMLElement).click();
+      }, firstName);
+      
+      await page.waitForTimeout(1000);
+      await takeScreenshot(page, "patient-selected-existing");
+      logger.info("Existing patient selected");
+    } else {
+      // Patient not found — treat as new client
+      logger.warn({ name: details.name }, "Patient not found — registering as new");
+      await searchInput.click();
+      // Clear search and proceed to register new
+      await page.keyboard.selectAll();
+      await page.keyboard.press("Backspace");
+      await registerNewPatient(page, details);
+    }
+  }
+} else {
+  // ── NEW CLIENT — Register new patient ─────────
+  logger.info({ name: details.name }, "Registering new patient");
+  
+  // Click "Register New" button
+  await page.evaluate(() => {
+    const elements = Array.from(document.querySelectorAll("button, a, span, div"));
+    const el = elements.find(e => 
+      e.textContent?.trim().toLowerCase().includes("register new")
+    );
+    if (el) (el as HTMLElement).click();
+  });
+  await page.waitForTimeout(2000);
+  await takeScreenshot(page, "register-new-form");
+  
+  await registerNewPatient(page, details);
+}
+
+STEP 2 — Extract registerNewPatient into 
+a reusable function:
+
+async function registerNewPatient(
+  page: Page, 
+  details: BookingDetails
+): Promise<void> {
+  const nameParts = details.name.trim().split(" ");
+  const firstName = nameParts[0] ?? details.name;
+  const lastName = nameParts.slice(1).join(" ") || "-";
+
+  // Wait for register form
+  await page.waitForSelector(
+    'input[placeholder="First name"]', 
+    { visible: true, timeout: 10000 }
+  );
+
+  // Fill first and last name
+  await page.type('input[placeholder="First name"]', firstName);
+  await page.type('input[placeholder="Last name"]', lastName);
+
+  // Fill phone if available
+  if (details.phone) {
+    await page.evaluate((phone) => {
+      const inputs = Array.from(document.querySelectorAll("input"));
+      const mobileInput = inputs.find(i => 
+        i.placeholder?.includes("9XX") || 
+        i.type === "tel" ||
+        i.placeholder?.toLowerCase().includes("mobile") ||
+        i.placeholder?.toLowerCase().includes("phone")
+      );
+      if (mobileInput) {
+        mobileInput.value = phone;
+        mobileInput.dispatchEvent(new Event("input", { bubbles: true }));
+        mobileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }, details.phone);
+  }
+
+  // Select Lead Source — Facebook
+  await page.evaluate(() => {
+    const selects = Array.from(document.querySelectorAll("select"));
+    for (const select of selects) {
+      const container = select.closest("div")?.textContent?.toLowerCase() ?? "";
+      if (container.includes("lead source") || container.includes("how did")) {
+        const fbOption = Array.from(select.options).find(o => 
+          /facebook|social|online|instagram/i.test(o.text)
+        );
+        if (fbOption) select.value = fbOption.value;
+        else if (select.options.length > 1) select.selectedIndex = 1;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+        break;
+      }
+    }
+  });
+
+  // Add notes
+  await page.evaluate((details) => {
+    const textareas = Array.from(document.querySelectorAll("textarea"));
+    const notes = textareas.find(t => 
+      t.placeholder?.toLowerCase().includes("note") ||
+      t.placeholder?.toLowerCase().includes("additional")
+    );
+    if (notes) {
+      notes.value = `Booked via Facebook Messenger. Service: ${details.service}. Date: ${details.date} at ${details.time}. Client type: ${details.clientType ?? "New"}.`;
+      notes.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, details);
+
+  await takeScreenshot(page, "register-form-filled");
+
+  // Click Register Patient button
+  await page.evaluate(() => {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const btn = buttons.find(b => 
+      /register patient|register/i.test(b.textContent ?? "")
+    );
+    if (btn) btn.click();
+  });
+
+  await page.waitForTimeout(3000);
+  await takeScreenshot(page, "patient-registered");
+  logger.info("Patient registration submitted");
+}
+
+STEP 3 — Fix service search in AnyPlusPro
+After patient is selected, search and select 
+the correct service:
+
+// Search for service
+const serviceInput = await page.$(
+  'input[placeholder*="Search services"], input[placeholder*="service"]'
+);
+
+if (serviceInput) {
+  // Extract key service word for better search
+  const serviceKeyword = details.service
+    .replace(/treatment|therapy|procedure/gi, "")
+    .trim()
+    .split(" ")[0]; // Use first word only for broader search
+    
+  await serviceInput.type(serviceKeyword);
+  await page.waitForTimeout(2000);
+  await takeScreenshot(page, "service-search-results");
+
+  // Click first matching service result
+  await page.evaluate((serviceName) => {
+    const results = Array.from(document.querySelectorAll(
+      '[class*="service"], [class*="result"], [class*="option"], [class*="item"]'
+    ));
+    const match = results.find(r => 
+      r.textContent?.toLowerCase().includes(serviceName.toLowerCase())
+    );
+    if (match) (match as HTMLElement).click();
+    else if (results[0]) (results[0] as HTMLElement).click();
+  }, serviceKeyword);
+  
+  await page.waitForTimeout(1000);
+  await takeScreenshot(page, "service-selected");
+}
+
+STEP 4 — Fix the final submit button
+The button says "Book Appointment" not "Book" or "Save".
+Update the submit button click:
+
+await page.evaluate(() => {
+  const buttons = Array.from(document.querySelectorAll("button"));
+  const submitBtn = buttons.find(b => 
+    /book appointment|book|confirm|save/i.test(b.textContent ?? "")
+  );
+  if (submitBtn) submitBtn.click();
+});
+await page.waitForTimeout(3000);
+await takeScreenshot(page, "booking-submitted");
+
+STEP 5 — Update BookingDetails interface 
+to make clientType required:
+
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+  phone?: string;
+  clientType?: "Old" | "New";  // Old = search existing, New = register
+}
