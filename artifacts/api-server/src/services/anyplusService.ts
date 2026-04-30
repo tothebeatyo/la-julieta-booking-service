@@ -512,8 +512,7 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     logger.info({ details }, "autoBook: starting AnyPlusPro automation");
 
     browser = await launchBrowser();
-
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
 
@@ -527,19 +526,16 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
 
     // ── Step 1: Login ─────────────────────────────────────────────────────────
     await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle", timeout: 30000 });
-    await page.fill('input[type="email"], input[name="email"], input[name="username"]', ANYPLUSPRO_USERNAME, { timeout: 10000 });
+    await page.fill('input[type="email"], input[name="email"]', ANYPLUSPRO_USERNAME, { timeout: 10000 });
     await page.fill('input[type="password"]', ANYPLUSPRO_PASSWORD, { timeout: 5000 });
-    await page.click('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")', { timeout: 5000 });
+    await page.click('button[type="submit"], button:has-text("Sign In")', { timeout: 5000 });
     await page.waitForLoadState("networkidle", { timeout: 20000 });
     await ss("01-after-login");
-
-    if (page.url().includes("login")) {
-      throw new Error("Login failed — check ANYPLUSPRO_USERNAME and ANYPLUSPRO_PASSWORD");
-    }
+    if (page.url().includes("login")) throw new Error("Login failed — check credentials");
     logger.info("autoBook: login successful");
 
     // ── Step 2: Navigate to Appointments ──────────────────────────────────────
-    const apptLink = page.locator('a:has-text("Appointment"), a[href*="appointment"]').first();
+    const apptLink = page.locator('a:has-text("Appointments"), a[href*="appointment"]').first();
     if (await apptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await apptLink.click();
       await page.waitForLoadState("networkidle", { timeout: 10000 });
@@ -548,98 +544,184 @@ export async function autoBook(details: BookingDetails): Promise<BookingResult> 
     logger.info("autoBook: on appointments page");
 
     // ── Step 3: Open New Appointment modal ────────────────────────────────────
-    await page.click(
-      'button:has-text("Appointment"), button:has-text("New Appointment"), button:has-text("+ Appointment")',
-      { timeout: 10000 },
-    );
+    // The button text in the header is "+ Appointment" or "New Appointment"
+    await page.locator('button:has-text("Appointment")').first().click({ timeout: 10000 });
     await page.waitForTimeout(1500);
-    await ss("03-new-appointment-modal");
-    logger.info("autoBook: new appointment modal opened");
+    await ss("03-modal-opened");
+    logger.info("autoBook: New Appointment modal opened");
 
-    // ── Step 4: Click Register New ────────────────────────────────────────────
-    await page.click('button:has-text("Register New"), text=Register New', { timeout: 10000 });
-    await page.waitForTimeout(1500);
-    await ss("04-register-patient-form");
-    logger.info("autoBook: register patient form visible");
-
-    // ── Step 5: Fill patient registration ────────────────────────────────────
-    const nameParts = details.name.trim().split(/\s+/);
-    const firstName = nameParts[0] ?? details.name;
-    const lastName = nameParts.slice(1).join(" ") || "—";
-
-    const firstInput = page.locator('input[placeholder="First name"], input[placeholder*="first" i]').first();
-    if (await firstInput.isVisible({ timeout: 5000 }).catch(() => false)) await firstInput.fill(firstName);
-
-    const lastInput = page.locator('input[placeholder="Last name"], input[placeholder*="last" i]').first();
-    if (await lastInput.isVisible({ timeout: 3000 }).catch(() => false)) await lastInput.fill(lastName);
-
-    if (details.phone) {
-      const phoneInput = page.locator('input[placeholder*="9XX"], input[placeholder*="mobile" i], input[type="tel"]').first();
-      if (await phoneInput.isVisible({ timeout: 3000 }).catch(() => false)) await phoneInput.fill(details.phone);
-    }
-
-    // Lead source — try to select Facebook / Instagram
-    await page.selectOption('select', { label: /facebook|social media|instagram|online/i })
-      .catch(() =>
-        page.evaluate(() => {
-          document.querySelectorAll("select").forEach((s) => { if (s.options.length > 1) s.selectedIndex = 1; });
-        }).catch(() => {})
-      );
-
-    // Notes
-    const notesInput = page.locator('textarea[placeholder*="notes" i], textarea[placeholder*="Notes"]').first();
-    if (await notesInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await notesInput.fill(
-        `Booked via Facebook Messenger chatbot. Service: ${details.service}. Date: ${details.date} at ${details.time}.`
-      );
-    }
-    await ss("05-form-filled");
-
-    // ── Step 6: Submit patient registration ───────────────────────────────────
-    await page.click('button:has-text("Register Patient"), button:has-text("Register"), button[type="submit"]', { timeout: 10000 });
-    await page.waitForLoadState("networkidle", { timeout: 15000 });
-    await ss("06-patient-registered");
-    logger.info("autoBook: patient registered");
-
-    // ── Step 7: Search and select patient in appointment form ─────────────────
-    const searchInput = page.locator('input[placeholder*="Search by name" i], input[placeholder*="search" i]').first();
-    if (await searchInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await searchInput.fill(details.name);
+    // ── Step 4: Search for existing patient; register if not found ────────────
+    const patientSearch = page.locator('input[placeholder*="Search by name" i]').first();
+    if (await patientSearch.isVisible({ timeout: 5000 }).catch(() => false)) {
+      const searchTerm = details.phone ?? details.name;
+      await patientSearch.fill(searchTerm);
       await page.waitForTimeout(1500);
-      await page.click('[class*="patient"], [class*="result"]:first-child, [class*="suggestion"]:first-child', { timeout: 5000 })
-        .catch(async () => { await page.keyboard.press("Enter"); });
-    }
-    await ss("07-patient-selected");
 
-    // ── Step 8: Select service ────────────────────────────────────────────────
-    const svcInput = page.locator('input[placeholder*="Search service" i], input[placeholder*="service" i]').first();
-    if (await svcInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await svcInput.fill(details.service);
-      await page.waitForTimeout(1500);
-      await page.click('[class*="service"]:first-child, [class*="result"]:first-child', { timeout: 5000 })
-        .catch(async () => { await page.keyboard.press("Enter"); });
+      // Check if a dropdown result appeared
+      const firstResult = page.locator('[role="option"], [role="listbox"] li').first();
+      const found = await firstResult.isVisible({ timeout: 2000 }).catch(() => false);
+
+      if (found) {
+        await firstResult.click();
+        logger.info("autoBook: existing patient selected from search");
+        await ss("04-patient-selected");
+      } else {
+        // No match — click "Register New" link in the Patient section header
+        logger.info("autoBook: patient not found, opening Register New form");
+        await patientSearch.clear();
+        await page.locator('button:has-text("Register New"), a:has-text("Register New")').first().click({ timeout: 5000 });
+        await page.waitForTimeout(1000);
+        await ss("04-register-form");
+
+        // ── Fill Register New Patient form ─────────────────────────────────
+        const nameParts = details.name.trim().split(/\s+/);
+        const firstName = nameParts[0] ?? details.name;
+        const lastName = nameParts.slice(1).join(" ") || firstName;
+
+        // First/Last name — exact placeholders from screenshot
+        await page.fill('input[placeholder="First name"]', firstName, { timeout: 5000 }).catch(() => {});
+        await page.fill('input[placeholder="Last name"]', lastName, { timeout: 3000 }).catch(() => {});
+
+        // Mobile — placeholder "+63 9XX XXX XXXX"
+        if (details.phone) {
+          await page.fill('input[placeholder*="9XX"], input[placeholder*="mobile" i], input[type="tel"]', details.phone, { timeout: 3000 }).catch(() => {});
+        }
+
+        // Lead Source (required *) — scoped to register dialog, index 1 (0=Gender, 1=Lead Source, 2=Patient Manager)
+        const regDialog = page.locator('[role="dialog"]').last();
+        const leadSrcSelect = regDialog.locator('select').nth(1);
+        if (await leadSrcSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await leadSrcSelect.selectOption({ label: /facebook/i }).catch(async () => {
+            await leadSrcSelect.selectOption({ index: 1 }).catch(() => {});
+          });
+        }
+
+        // Notes — "Any additional notes"
+        const notesInput = regDialog.locator('textarea[placeholder*="notes" i]').first();
+        if (await notesInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+          await notesInput.fill(`Booked via Messenger chatbot. Service: ${details.service}. Date: ${details.date} at ${details.time}.`);
+        }
+
+        await ss("05-register-filled");
+
+        // Click "Register Patient" button
+        await regDialog.locator('button:has-text("Register Patient")').click({ timeout: 10000 });
+        await page.waitForTimeout(1500);
+
+        // ── Handle duplicate patient warning ──────────────────────────────────
+        // AnyPlusPro shows "Phone already registered at [location]" with
+        // [View Existing Patient] [Create Anyway] [Cancel] when phone exists
+        const viewExistingBtn = page.locator('button:has-text("View Existing Patient")');
+        const createAnywayBtn = page.locator('button:has-text("Create Anyway")');
+        if (await createAnywayBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          // "Create Anyway" stays in the appointment form flow — preferred over navigating away
+          logger.info("autoBook: duplicate detected, creating patient anyway to stay in appointment flow");
+          await createAnywayBtn.click({ timeout: 5000 });
+          await page.waitForTimeout(1500);
+          await ss("06-patient-registered");
+        } else if (await viewExistingBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+          // "View Existing Patient" navigates to the patient record page; we then click "Book" there
+          logger.info("autoBook: duplicate detected — navigating to existing patient record");
+          await viewExistingBtn.click({ timeout: 5000 });
+          // Wait for URL to change to patient record (contains "patient" in path)
+          await page.waitForURL(/patient/i, { timeout: 15000 }).catch(() => {});
+          await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+          await page.waitForTimeout(2000); // let React render the page
+          await ss("06-patient-record");
+
+          // The patient record page has a "Book" button that opens New Appointment modal (patient pre-filled)
+          const bookBtn = page.locator('button:has-text("Book")').first();
+          if (await bookBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
+            await bookBtn.click({ timeout: 5000 });
+            await page.waitForTimeout(2000);
+            logger.info("autoBook: appointment modal re-opened from patient record");
+            await ss("06b-modal-from-patient");
+          }
+        } else {
+          await page.waitForTimeout(500);
+          await ss("06-patient-registered");
+        }
+        logger.info("autoBook: patient step complete");
+
+        // After registration/duplicate-handling, search for patient in appointment form if not already selected
+        const patientFieldVal = await page.locator('input[placeholder*="Search by name" i]').first().inputValue({ timeout: 2000 }).catch(() => "");
+        if (!patientFieldVal) {
+          const searchAgain = page.locator('input[placeholder*="Search by name" i]').first();
+          if (await searchAgain.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await searchAgain.fill(details.name);
+            await page.waitForTimeout(2000);
+            const result = page.locator('[role="option"], [role="listbox"] li, [role="listbox"] button').first();
+            if (await result.isVisible({ timeout: 2000 }).catch(() => false)) {
+              await result.click();
+            } else {
+              await searchAgain.press("ArrowDown");
+              await page.waitForTimeout(300);
+              await searchAgain.press("Enter");
+            }
+          }
+        }
+        await ss("07-patient-confirmed");
+      }
+    }
+
+    // ── Step 5: Select service from the searchable list ───────────────────────
+    const serviceMatch = matchService(details.service);
+    const searchTerm = serviceMatch ? (SERVICE_KEYWORDS[serviceMatch]?.[0] ?? details.service) : details.service;
+    const svcSearch = page.locator('input[placeholder*="Search services" i]').first();
+    if (await svcSearch.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await svcSearch.fill(searchTerm);
+      await page.waitForTimeout(1000);
+      // Service items are <button class="w-full text-left px-3 py-2 ..."> (confirmed from Playwright error log)
+      // Scope to dialog to avoid matching external buttons
+      const apptDialog = page.locator('[role="dialog"]').last();
+      const svcButton = apptDialog.locator('button.text-left').filter({ hasText: new RegExp(searchTerm, "i") }).first();
+      if (await svcButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await svcButton.click();
+        logger.info("autoBook: service button clicked");
+      } else {
+        // Fallback: click the first left-aligned button in the dialog that appeared after the search
+        const firstBtn = apptDialog.locator('button.text-left').first();
+        if (await firstBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          await firstBtn.click();
+        }
+      }
     }
     await ss("08-service-selected");
+    logger.info("autoBook: service selected");
 
-    // ── Step 9: Set date and time ─────────────────────────────────────────────
+    // ── Step 6: Set date ──────────────────────────────────────────────────────
     const dateInput = page.locator('input[type="date"]').first();
-    if (await dateInput.isVisible({ timeout: 5000 }).catch(() => false)) await dateInput.fill(details.date);
+    if (await dateInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await dateInput.fill(formatDateForInput(details.date));
+    }
 
+    // ── Step 7: Set time ──────────────────────────────────────────────────────
     const timeInput = page.locator('input[type="time"]').first();
-    if (await timeInput.isVisible({ timeout: 3000 }).catch(() => false)) await timeInput.fill(convertTo24Hr(details.time));
-
+    if (await timeInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await timeInput.fill(convertTo24Hr(details.time));
+    }
     await ss("09-datetime-set");
 
-    // ── Step 10: Submit booking ───────────────────────────────────────────────
-    await page.click(
-      'button:has-text("Book"), button:has-text("Confirm"), button:has-text("Save"), button:has-text("Create Appointment")',
-      { timeout: 10000 },
-    );
+    // ── Step 8: Scroll modal to bottom and submit ─────────────────────────────
+    // Click modal title to dismiss any open pickers (service/date/time dropdowns)
+    await page.locator('[role="dialog"] h2, [role="dialog"] h3').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+
+    await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"]') ?? document.querySelector(".modal-content") ?? document.body;
+      dialog.scrollTop = dialog.scrollHeight;
+    });
+    await page.waitForTimeout(500);
+    await ss("10-before-submit");
+
+    // Scope submit button to inside the dialog to avoid matching the header "+ Appointment" button
+    const apptModal = page.locator('[role="dialog"]').last();
+    await apptModal.locator('button:has-text("Book Appointment")').click({ timeout: 10000 });
     await page.waitForLoadState("networkidle", { timeout: 15000 }).catch(() => {});
-    const finalShot = await ss("10-booking-submitted");
+    const finalShot = await ss("11-submitted");
     logger.info("autoBook: booking submitted");
 
-    // ── Step 11: Detect success ───────────────────────────────────────────────
+    // ── Step 9: Detect success ────────────────────────────────────────────────
     const pageContent = await page.content();
     const isSuccess = /success|confirmed|booked|appointment created|booking created/i.test(pageContent);
 

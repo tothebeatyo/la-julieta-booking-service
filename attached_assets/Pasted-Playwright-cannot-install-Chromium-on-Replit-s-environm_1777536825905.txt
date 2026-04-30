@@ -1,0 +1,339 @@
+Playwright cannot install Chromium on Replit's environment.
+Switch the entire anyplusService.ts to use Puppeteer instead.
+
+STEP 1 — Update package.json:
+In artifacts/api-server/package.json:
+- Remove "playwright" from dependencies
+- Add "puppeteer": "^22.0.0"
+
+STEP 2 — Rewrite anyplusService.ts completely:
+
+import puppeteer, { type Browser, type Page } from "puppeteer";
+import { logger } from "../lib/logger";
+import { pool } from "@workspace/db";
+import { notifyBooking } from "./telegramNotifier";
+import { existsSync, mkdirSync } from "fs";
+
+const ANYPLUSPRO_URL = "https://www.lajulieta.anypluspro.com";
+const USERNAME = process.env["ANYPLUSPRO_USERNAME"] ?? "";
+const PASSWORD = process.env["ANYPLUSPRO_PASSWORD"] ?? "";
+const SCREENSHOT_DIR = "logs/screenshots";
+
+if (!existsSync(SCREENSHOT_DIR)) {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+}
+
+export interface BookingDetails {
+  psid: string;
+  name: string;
+  service: string;
+  date: string;
+  time: string;
+  phone?: string;
+  clientType?: string;
+}
+
+export interface BookingResult {
+  success: boolean;
+  screenshotPath?: string;
+  error?: string;
+}
+
+async function takeScreenshot(page: Page, name: string): Promise<string> {
+  const filename = `${SCREENSHOT_DIR}/${name}-${Date.now()}.png`;
+  await page.screenshot({ path: filename, fullPage: true });
+  logger.info({ filename }, "Screenshot saved");
+  return filename;
+}
+
+export async function autoBook(details: BookingDetails): Promise<BookingResult> {
+  let browser: Browser | null = null;
+  try {
+    logger.info({ details }, "Starting AnyPlusPro auto-booking");
+
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
+      ],
+    });
+
+    const page = await browser.newPage();
+    await page.setDefaultTimeout(30000);
+    await page.setViewport({ width: 1280, height: 800 });
+
+    // STEP 1: Login
+    await page.goto(ANYPLUSPRO_URL, { waitUntil: "networkidle2" });
+    await takeScreenshot(page, "01-landing");
+
+    await page.type('input[type="email"]', USERNAME);
+    await page.type('input[type="password"]', PASSWORD);
+    await takeScreenshot(page, "02-filled-login");
+
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "networkidle2" }),
+      page.click('button[type="submit"]'),
+    ]);
+    await takeScreenshot(page, "03-after-login");
+
+    const currentUrl = page.url();
+    if (currentUrl.includes("login")) {
+      throw new Error("Login failed — check credentials");
+    }
+    logger.info("Login successful");
+
+    // STEP 2: Go to Appointments
+    await page.waitForSelector('a[href*="appointment"], nav a', { visible: true });
+    await takeScreenshot(page, "04-dashboard");
+    
+    // Click appointments in nav
+    await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll("a"));
+      const apptLink = links.find(l => 
+        l.textContent?.toLowerCase().includes("appointment")
+      );
+      if (apptLink) apptLink.click();
+    });
+    await page.waitForNavigation({ waitUntil: "networkidle2" }).catch(() => {});
+    await takeScreenshot(page, "05-appointments");
+
+    // STEP 3: Click New Appointment button
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const btn = buttons.find(b => 
+        b.textContent?.toLowerCase().includes("appointment")
+      );
+      if (btn) btn.click();
+    });
+    await page.waitForTimeout(2000);
+    await takeScreenshot(page, "06-new-appointment-modal");
+
+    // STEP 4: Click Register New
+    await page.evaluate(() => {
+      const elements = Array.from(document.querySelectorAll("button, a, span, div"));
+      const el = elements.find(e => 
+        e.textContent?.trim().toLowerCase().includes("register new")
+      );
+      if (el) (el as HTMLElement).click();
+    });
+    await page.waitForTimeout(2000);
+    await takeScreenshot(page, "07-register-patient-form");
+
+    // STEP 5: Fill patient form
+    const nameParts = details.name.trim().split(" ");
+    const firstName = nameParts[0] ?? details.name;
+    const lastName = nameParts.slice(1).join(" ") || "-";
+
+    await page.type('input[placeholder="First name"]', firstName);
+    await page.type('input[placeholder="Last name"]', lastName);
+    
+    if (details.phone) {
+      await page.evaluate((phone) => {
+        const inputs = Array.from(document.querySelectorAll("input"));
+        const mobileInput = inputs.find(i => 
+          i.placeholder?.includes("9XX") || 
+          i.type === "tel" ||
+          i.placeholder?.toLowerCase().includes("mobile")
+        );
+        if (mobileInput) mobileInput.value = phone;
+      }, details.phone);
+    }
+
+    // Select Lead Source — try Facebook/Social Media
+    await page.evaluate(() => {
+      const selects = Array.from(document.querySelectorAll("select"));
+      const leadSelect = selects.find(s => 
+        s.closest("div")?.textContent?.toLowerCase().includes("lead source")
+      );
+      if (leadSelect && leadSelect.options.length > 1) {
+        // Try to find Facebook option
+        const fbOption = Array.from(leadSelect.options).find(o => 
+          o.text.toLowerCase().includes("facebook") || 
+          o.text.toLowerCase().includes("social") ||
+          o.text.toLowerCase().includes("online")
+        );
+        if (fbOption) leadSelect.value = fbOption.value;
+        else leadSelect.selectedIndex = 1;
+      }
+    });
+
+    // Add notes
+    await page.evaluate((details) => {
+      const textareas = Array.from(document.querySelectorAll("textarea"));
+      const notesArea = textareas.find(t => 
+        t.placeholder?.toLowerCase().includes("note")
+      );
+      if (notesArea) {
+        notesArea.value = `Booked via Facebook Messenger. Service: ${details.service}. Date: ${details.date} at ${details.time}. Client type: ${details.clientType ?? "New"}.`;
+      }
+    }, details);
+
+    await takeScreenshot(page, "08-form-filled");
+
+    // STEP 6: Submit patient registration
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const submitBtn = buttons.find(b => 
+        b.textContent?.toLowerCase().includes("register patient") ||
+        b.textContent?.toLowerCase().includes("register")
+      );
+      if (submitBtn) submitBtn.click();
+    });
+    await page.waitForTimeout(3000);
+    await takeScreenshot(page, "09-patient-registered");
+    logger.info("Patient registration submitted");
+
+    // STEP 7: Search for patient in appointment form
+    await page.waitForTimeout(2000);
+    const searchInput = await page.$('input[placeholder*="Search by name"], input[placeholder*="search"]');
+    if (searchInput) {
+      await searchInput.type(firstName);
+      await page.waitForTimeout(2000);
+      await takeScreenshot(page, "10-patient-search");
+      
+      // Click first search result
+      await page.evaluate(() => {
+        const results = document.querySelectorAll('[class*="result"], [class*="option"], [class*="suggestion"]');
+        if (results[0]) (results[0] as HTMLElement).click();
+      });
+      await page.waitForTimeout(1000);
+    }
+    await takeScreenshot(page, "11-patient-selected");
+
+    // STEP 8: Select service
+    const serviceInput = await page.$('input[placeholder*="Search services"], input[placeholder*="service"]');
+    if (serviceInput) {
+      await serviceInput.type(details.service);
+      await page.waitForTimeout(2000);
+      await takeScreenshot(page, "12-service-search");
+      
+      await page.evaluate(() => {
+        const results = document.querySelectorAll('[class*="result"], [class*="option"], [class*="service"]');
+        if (results[0]) (results[0] as HTMLElement).click();
+      });
+      await page.waitForTimeout(1000);
+    }
+    await takeScreenshot(page, "13-service-selected");
+
+    // STEP 9: Set date and time
+    const time24 = convertTo24Hr(details.time);
+    await page.evaluate((date, time) => {
+      const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+      if (dateInput) { dateInput.value = date; dateInput.dispatchEvent(new Event("change", { bubbles: true })); }
+      const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement;
+      if (timeInput) { timeInput.value = time; timeInput.dispatchEvent(new Event("change", { bubbles: true })); }
+    }, details.date, time24);
+    await takeScreenshot(page, "14-datetime-set");
+
+    // STEP 10: Submit booking
+    await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const submitBtn = buttons.find(b => 
+        b.textContent?.toLowerCase().includes("book") ||
+        b.textContent?.toLowerCase().includes("confirm") ||
+        b.textContent?.toLowerCase().includes("save") ||
+        b.textContent?.toLowerCase().includes("create")
+      );
+      if (submitBtn) submitBtn.click();
+    });
+    await page.waitForTimeout(3000);
+    const finalScreenshot = await takeScreenshot(page, "15-final-result");
+    logger.info("Booking submitted");
+
+    // STEP 11: Check success
+    const success = await page.evaluate(() => {
+      const body = document.body.textContent?.toLowerCase() ?? "";
+      return body.includes("success") || 
+             body.includes("confirmed") || 
+             body.includes("booked");
+    });
+
+    // Update DB
+    await pool.query(
+      `UPDATE clients SET 
+        anypluspro_status = $1,
+        lead_status = 'booking_confirmed',
+        updated_at = NOW()
+       WHERE psid = $2`,
+      [success ? "auto_booked" : "manual_booking_required", details.psid]
+    );
+
+    // Telegram notification
+    await notifyBooking({
+      name: details.name,
+      service: details.service,
+      date: details.date,
+      time: details.time,
+      status: success ? "success" : "failed",
+      psid: details.psid,
+    });
+
+    return { success, screenshotPath: finalScreenshot };
+
+  } catch (err) {
+    logger.error({ err }, "AnyPlusPro booking failed");
+    
+    await pool.query(
+      `UPDATE clients SET anypluspro_status = 'manual_booking_required', updated_at = NOW() WHERE psid = $1`,
+      [details.psid]
+    ).catch(() => {});
+
+    await notifyBooking({
+      name: details.name,
+      service: details.service,
+      date: details.date,
+      time: details.time,
+      status: "failed",
+      psid: details.psid,
+    }).catch(() => {});
+
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    if (browser) await browser.close();
+  }
+}
+
+function convertTo24Hr(timeStr: string): string {
+  const clean = timeStr.trim().toUpperCase();
+  const match = clean.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/);
+  if (!match) return "09:00";
+  let hours = parseInt(match[1]);
+  const minutes = parseInt(match[2] ?? "0");
+  const meridiem = match[3];
+  if (meridiem === "PM" && hours !== 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export async function retryAutoBooking(psid: string): Promise<{ success: boolean; error?: string }> {
+  const result = await pool.query(
+    "SELECT name, service, preferred_date, preferred_time, phone FROM clients WHERE psid = $1",
+    [psid]
+  );
+  if (!result.rows[0]) return { success: false, error: "Client not found" };
+  const row = result.rows[0];
+  return autoBook({
+    psid,
+    name: row.name,
+    service: row.service,
+    date: row.preferred_date,
+    time: row.preferred_time,
+    phone: row.phone,
+  });
+}
+
+STEP 3 — Install puppeteer:
+Run in Replit shell:
+cd artifacts/api-server && pnpm install
+
+STEP 4 — Restart server:
+pnpm run dev
