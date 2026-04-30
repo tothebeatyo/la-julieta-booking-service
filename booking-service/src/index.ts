@@ -42,11 +42,11 @@ app.post("/book", auth, async (req, res) => {
       ["image","media","font"].includes(req.resourceType()) ? req.abort() : req.continue();
     });
     await page.goto(ANYPLUSPRO_URL, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForTimeout(4000);
+    await new Promise(r => setTimeout(r, 4000));
     await page.type('input[type="email"]', USERNAME, { delay: 50 });
     await page.type('input[type="password"]', PASSWORD, { delay: 50 });
     await page.click('button[type="submit"]');
-    await page.waitForTimeout(5000);
+    await new Promise(r => setTimeout(r, 5000));
     const loginFailed = await page.evaluate(() => document.body.textContent?.toLowerCase().includes("sign in") ?? false);
     if (loginFailed) throw new Error("Login failed");
     console.log("Login OK");
@@ -54,18 +54,18 @@ app.post("/book", auth, async (req, res) => {
       const el = Array.from(document.querySelectorAll("a,button,div,li")).find(e => e.textContent?.toLowerCase().includes("appointment"));
       if (el) (el as HTMLElement).click();
     });
-    await page.waitForTimeout(3000);
+    await new Promise(r => setTimeout(r, 3000));
     await page.evaluate(() => {
       const btn = Array.from(document.querySelectorAll("button")).find(b => b.textContent?.toLowerCase().includes("appointment"));
       if (btn) btn.click();
     });
-    await page.waitForTimeout(3000);
+    await new Promise(r => setTimeout(r, 3000));
     const isOld = /old/i.test(clientType ?? "new");
     if (isOld) {
       const si = await page.$('input[placeholder*="Search by name"]');
       if (si) {
         await si.type(name.split(" ")[0], { delay: 50 });
-        await page.waitForTimeout(2000);
+        await new Promise(r => setTimeout(r, 2000));
         await page.evaluate((n: string) => {
           const r = Array.from(document.querySelectorAll('[class*="result"],[class*="option"],li'));
           const m = r.find(x => x.textContent?.toLowerCase().includes(n.toLowerCase()));
@@ -77,7 +77,7 @@ app.post("/book", auth, async (req, res) => {
         const el = Array.from(document.querySelectorAll("button,a,span,div")).find(e => e.textContent?.trim().toLowerCase().includes("register new"));
         if (el) (el as HTMLElement).click();
       });
-      await page.waitForTimeout(2000);
+      await new Promise(r => setTimeout(r, 2000));
       const parts = name.trim().split(" ");
       await page.waitForSelector('input[placeholder="First name"]', { timeout: 10000 }).catch(() => {});
       await page.type('input[placeholder="First name"]', parts[0] ?? name, { delay: 50 });
@@ -104,19 +104,19 @@ app.post("/book", auth, async (req, res) => {
         const btn = Array.from(document.querySelectorAll("button")).find(b => /register patient/i.test(b.textContent ?? ""));
         if (btn) btn.click();
       });
-      await page.waitForTimeout(4000);
+      await new Promise(r => setTimeout(r, 4000));
     }
     const kw = service.split(" ")[0].replace(/[™®]/g, "").trim();
     const si2 = await page.$('input[placeholder*="Search services"]');
     if (si2) {
       await si2.type(kw, { delay: 50 });
-      await page.waitForTimeout(2000);
+      await new Promise(r => setTimeout(r, 2000));
       await page.evaluate((k: string) => {
         const items = Array.from(document.querySelectorAll('[class*="service"],[class*="result"],[class*="item"],li'));
         const m = items.find(i => i.textContent?.toLowerCase().includes(k.toLowerCase()));
         if (m) (m as HTMLElement).click(); else if (items[0]) (items[0] as HTMLElement).click();
       }, kw);
-      await page.waitForTimeout(1000);
+      await new Promise(r => setTimeout(r, 1000));
     }
     const t24 = convertTo24Hr(time);
     const df = formatDate(date);
@@ -126,12 +126,12 @@ app.post("/book", auth, async (req, res) => {
       const ti = document.querySelector('input[type="time"]') as HTMLInputElement;
       if (ti) { ti.value = t; ti.dispatchEvent(new Event("change", { bubbles: true })); }
     }, df, t24);
-    await page.waitForTimeout(1000);
+    await new Promise(r => setTimeout(r, 1000));
     await page.evaluate(() => {
       const btn = Array.from(document.querySelectorAll("button")).find(b => /book appointment|book|confirm/i.test(b.textContent ?? ""));
       if (btn) btn.click();
     });
-    await page.waitForTimeout(4000);
+    await new Promise(r => setTimeout(r, 4000));
     const success = await page.evaluate(() => {
       const body = document.body.textContent?.toLowerCase() ?? "";
       return body.includes("success") || body.includes("confirmed") || body.includes("booked");
