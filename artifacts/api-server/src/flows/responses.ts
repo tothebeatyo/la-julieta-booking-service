@@ -12,9 +12,10 @@ export const INTENT_MENU_TEXT =
   "Here's what I can help you with — just tap one below! 😊";
 
 export const INTENT_QUICK_REPLIES = [
-  { title: "💆 Facial Treatments", payload: "INTENT_FACIALS" },
+  { title: "🧖 Facial Treatments", payload: "INTENT_FACIALS" },
   { title: "✨ Skin Concerns", payload: "INTENT_SKIN_CONCERN" },
-  { title: "💉 Injectables / Gluta", payload: "INTENT_INJECTABLES" },
+  { title: "💎 Whitening", payload: "INTENT_WHITENING" },
+  { title: "⚡ Slimming", payload: "INTENT_SLIMMING" },
   { title: "🎉 Promos", payload: "INTENT_PROMOS" },
   { title: "📅 Book Appointment", payload: "INTENT_BOOK" },
   { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },

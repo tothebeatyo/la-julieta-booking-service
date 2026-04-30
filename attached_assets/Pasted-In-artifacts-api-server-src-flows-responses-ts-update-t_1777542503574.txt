@@ -1,0 +1,123 @@
+In artifacts/api-server/src/flows/responses.ts,
+update the INTENT_QUICK_REPLIES and INTENT_MENU_TEXT
+to match the new menu options exactly.
+
+STEP 1 — Update the main menu quick replies:
+
+export const INTENT_MENU_TEXT = 
+  "Here's what I can help you with — just tap one below! 😊";
+
+export const INTENT_QUICK_REPLIES = [
+  { title: "🧖 Facial Treatments", payload: "INTENT_FACIALS" },
+  { title: "✨ Skin Concerns", payload: "INTENT_SKIN_CONCERN" },
+  { title: "💎 Whitening", payload: "INTENT_WHITENING" },
+  { title: "⚡ Slimming", payload: "INTENT_SLIMMING" },
+  { title: "🎉 Promos", payload: "INTENT_PROMOS" },
+  { title: "📅 Book Appointment", payload: "INTENT_BOOK" },
+  { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+];
+
+STEP 2 — Add new INTENT_WHITENING handler
+in bookingFlow.ts:
+
+case "INTENT_WHITENING": {
+  await sendWithDelayAndQuickReplies(
+    psid,
+    "💎 Which whitening treatment interests you? 💕",
+    [
+      { title: "💉 IV Drip / Gluta", payload: "INTENT_IV_DRIP" },
+      { title: "✨ Laser Whitening", payload: "INTENT_LASER" },
+      { title: "🔬 Korean BB Glow", payload: "INTENT_MICRONEEDLING" },
+      { title: "💊 Injectables", payload: "INTENT_INJECTABLES" },
+      { title: "🧖 Whitening Facial", payload: "INTENT_FACIALS" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    800
+  );
+  return;
+}
+
+STEP 3 — Update INTENT_SKIN_CONCERN handler:
+
+case "INTENT_SKIN_CONCERN": {
+  await sendWithDelayAndQuickReplies(
+    psid,
+    "✨ What skin concern would you like to address? 💕",
+    [
+      { title: "😣 Acne / Pimples", payload: "INTENT_MICRONEEDLING" },
+      { title: "🌟 Dull Skin", payload: "INTENT_FACIALS" },
+      { title: "🔍 Dark Spots", payload: "INTENT_LASER" },
+      { title: "💧 Dry / Dehydrated", payload: "INTENT_FACIALS" },
+      { title: "🔬 Warts", payload: "INTENT_WARTS" },
+      { title: "📏 Sagging Skin", payload: "INTENT_HIFU" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    800
+  );
+  return;
+}
+
+STEP 4 — Update INTENT_SLIMMING handler:
+
+case "INTENT_SLIMMING": {
+  await sendWithDelayAndQuickReplies(
+    psid,
+    "⚡ Which slimming treatment are you interested in? 💕",
+    [
+      { title: "🍋 Lemon Bottle", payload: "INTENT_LEMON_BOTTLE" },
+      { title: "✨ Mesolipo", payload: "INTENT_MESOLIPO" },
+      { title: "💪 HIFU Tightening", payload: "INTENT_HIFU" },
+      { title: "💪 EmShape™", payload: "INTENT_EMSHAPE" },
+      { title: "⚡ ExiSlim™", payload: "INTENT_EXISLIM" },
+      { title: "👩‍⚕️ Talk to Agent", payload: "INTENT_STAFF" },
+    ],
+    800
+  );
+  return;
+}
+
+STEP 5 — Update the Facebook Persistent Menu
+to match the new options.
+
+In artifacts/api-server/src/routes/admin.ts,
+find the setup-persistent-menu route and update
+the call_to_actions to match:
+
+const menuPayload = {
+  persistent_menu: [
+    {
+      locale: "default",
+      composer_input_disabled: false,
+      call_to_actions: [
+        {
+          title: "📅 Book Appointment",
+          type: "postback",
+          payload: "INTENT_BOOK",
+        },
+        {
+          title: "💆 Our Services",
+          type: "nested",
+          call_to_actions: [
+            { title: "🧖 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
+            { title: "✨ Skin Concerns", type: "postback", payload: "INTENT_SKIN_CONCERN" },
+            { title: "💎 Whitening", type: "postback", payload: "INTENT_WHITENING" },
+            { title: "⚡ Slimming", type: "postback", payload: "INTENT_SLIMMING" },
+          ],
+        },
+        {
+          title: "🎉 Promos & Support",
+          type: "nested",
+          call_to_actions: [
+            { title: "🎉 View Promos", type: "postback", payload: "INTENT_PROMOS" },
+            { title: "👩‍⚕️ Talk to Agent", type: "postback", payload: "INTENT_STAFF" },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+STEP 6 — After updating, call setup-persistent-menu
+to push the new menu to Facebook.
+Make an internal call or remind the admin to press
+the Setup Menu button in the dashboard.

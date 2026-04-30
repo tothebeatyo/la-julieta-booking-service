@@ -248,20 +248,21 @@ router.post("/setup-persistent-menu", authMiddleware as unknown as (req: Request
             payload: "INTENT_BOOK",
           },
           {
-            title: "💆 Services & Concerns",
+            title: "💆 Our Services",
             type: "nested",
             call_to_actions: [
-              { title: "💆 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
-              { title: "✨ Skin Concerns", type: "postback", payload: "INTENT_SKIN_CONCERN" },
-              { title: "💉 Injectables / Gluta", type: "postback", payload: "INTENT_INJECTABLES" },
+              { title: "🧖 Facial Treatments", type: "postback", payload: "INTENT_FACIALS" },
+              { title: "✨ Skin Concerns",     type: "postback", payload: "INTENT_SKIN_CONCERN" },
+              { title: "💎 Whitening",          type: "postback", payload: "INTENT_WHITENING" },
+              { title: "⚡ Slimming",           type: "postback", payload: "INTENT_SLIMMING" },
             ],
           },
           {
-            title: "🎉 Promos & Contact",
+            title: "🎉 Promos & Support",
             type: "nested",
             call_to_actions: [
-              { title: "🎉 View Promos", type: "postback", payload: "INTENT_PROMOS" },
-              { title: "👩‍⚕️ Talk to Agent", type: "postback", payload: "INTENT_STAFF" },
+              { title: "🎉 View Promos",       type: "postback", payload: "INTENT_PROMOS" },
+              { title: "👩‍⚕️ Talk to Agent",  type: "postback", payload: "INTENT_STAFF" },
             ],
           },
         ],

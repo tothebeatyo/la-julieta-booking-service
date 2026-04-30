@@ -969,17 +969,52 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
     return;
   }
 
-  // ── Slimming ─────────────────────────────────────────────────────────────────
-  if (payload === "INTENT_SLIMMING" || /\b(slimming|fat dissolve|slim)\b/i.test(text)) {
-    setSession(psid, { step: "viewing_service", service: "Slimming Treatment", serviceCategory: "SLIMMING" });
-    upsertClient({ psid, service: "Slimming Treatment", leadStatus: "browsing" }).catch(() => {});
+  // ── EmShape ──────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_EMSHAPE" || /\b(emshape|em shape|body sculpt|muscle sculpt)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "EmShape", serviceCategory: "EMSHAPE" });
+    upsertClient({ psid, service: "EmShape", leadStatus: "browsing" }).catch(() => {});
     await sendWithDelayAndQuickReplies(
       psid,
-      `⚡ *SLIMMING TREATMENTS* — Price List (₱)\n\nLemon Bottle Fat Dissolve:\n- Cheeks & Jaw — 2,099\n- Double Chin — 2,099\n- Arms — 3,999\n- Bra Line — 3,099\n- Thighs — 3,999\n- Tummy — 3,999\n- Love Handle — 3,099\n\nMesolipo:\n- Cheeks & Jaw — 1,099\n- Double Chin — 1,099\n- Arms — 2,099\n- Bra Line — 2,099\n- Thighs — 2,099\n- Tummy — 2,499\n- Love Handle — 2,499\n\nWould you like to book? 💕`,
+      `💪 *EMSHAPE™ BODY SCULPTING*\n\nEmShape uses high-intensity focused electromagnetic technology to simultaneously burn fat and build muscle — no surgery, no downtime.\n\nTreatment areas: Tummy, Arms, Thighs, Glutes.\n\n👩‍⚕️ Ask our team for the latest pricing and package deals! 💕`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_EMSHAPE" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── ExiSlim ──────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_EXISLIM" || /\b(exislim|exi slim)\b/i.test(text)) {
+    setSession(psid, { step: "viewing_service", service: "ExiSlim", serviceCategory: "EXISLIM" });
+    upsertClient({ psid, service: "ExiSlim", leadStatus: "browsing" }).catch(() => {});
+    await sendWithDelayAndQuickReplies(
+      psid,
+      `⚡ *EXISLIM™ BODY CONTOURING* — Price List (₱)\n\n- Cheeks & Jaw — 699\n- Double Chin & Neck — 699\n- Full Face — 1,499\n- Full Face & Neck — 1,899\n- Tummy — 2,499\n- Arms / Thighs — 1,899\n- Full Back — 2,999\n\nWould you like to book? 💕`,
+      [
+        { title: "📅 Book This",        payload: "BOOK_EXISLIM" },
+        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
+  // ── Slimming ─────────────────────────────────────────────────────────────────
+  if (payload === "INTENT_SLIMMING" || /\b(slimming|fat dissolve|slim)\b/i.test(text)) {
+    setSession(psid, { step: "choosing_intent", intent: "slimming" });
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "⚡ Which slimming treatment are you interested in? 💕",
       [
         { title: "🍋 Lemon Bottle",     payload: "INTENT_LEMON_BOTTLE" },
-        { title: "💉 Mesolipo",         payload: "INTENT_MESOLIPO" },
-        { title: "💆 Other Services",   payload: "SHOW_ALL_SERVICES" },
+        { title: "✨ Mesolipo",          payload: "INTENT_MESOLIPO" },
+        { title: "💪 HIFU Tightening",  payload: "INTENT_HIFU" },
+        { title: "💪 EmShape™",         payload: "INTENT_EMSHAPE" },
+        { title: "⚡ ExiSlim™",         payload: "INTENT_EXISLIM" },
         { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
       ],
       800,
@@ -1057,13 +1092,39 @@ async function handleIntentChoice(psid: string, text: string, payload?: string):
   }
 
   // Skin concern menu
+  if (payload === "INTENT_WHITENING" || /\b(whitening|puti|lighten|glow|brightening)\b/i.test(text)) {
+    setSession(psid, { step: "choosing_intent", intent: "whitening" });
+    await sendWithDelayAndQuickReplies(
+      psid,
+      "💎 Which whitening treatment interests you? 💕",
+      [
+        { title: "💉 IV Drip / Gluta",      payload: "INTENT_IV_DRIP" },
+        { title: "✨ Laser Whitening",       payload: "INTENT_LASER" },
+        { title: "🔬 Korean BB Glow",        payload: "INTENT_MICRONEEDLING" },
+        { title: "💊 Injectables",           payload: "INTENT_INJECTABLES" },
+        { title: "🧖 Whitening Facial",      payload: "INTENT_FACIALS" },
+        { title: "👩‍⚕️ Talk to Agent",      payload: "INTENT_STAFF" },
+      ],
+      800,
+    );
+    return;
+  }
+
   if (payload === "INTENT_SKIN_CONCERN" || /\b(skin concern|concern|problema sa skin|problema ng balat)\b/i.test(text)) {
     setSession(psid, { step: "choosing_intent", intent: "skin_concern" });
     await sendWithDelayAndQuickReplies(
       psid,
-      "Which skin concern would you like help with? Just tap one below 😊",
-      SKIN_CONCERN_QUICK_REPLIES,
-      1000,
+      "✨ What skin concern would you like to address? 💕",
+      [
+        { title: "😣 Acne / Pimples",   payload: "INTENT_MICRONEEDLING" },
+        { title: "🌟 Dull Skin",         payload: "INTENT_FACIALS" },
+        { title: "🔍 Dark Spots",        payload: "INTENT_LASER" },
+        { title: "💧 Dry / Dehydrated",  payload: "INTENT_FACIALS" },
+        { title: "🔬 Warts",             payload: "INTENT_WARTS" },
+        { title: "📏 Sagging Skin",      payload: "INTENT_HIFU" },
+        { title: "👩‍⚕️ Talk to Agent",  payload: "INTENT_STAFF" },
+      ],
+      800,
     );
     return;
   }
