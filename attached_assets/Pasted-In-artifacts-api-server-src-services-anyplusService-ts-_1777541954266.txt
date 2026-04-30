@@ -1,0 +1,125 @@
+In artifacts/api-server/src/services/anyplusService.ts,
+the page.goto timeout is failing because "networkidle" 
+waits too long for a React SPA.
+
+Fix ALL page navigation wait strategies:
+
+STEP 1 — Replace ALL instances of waitUntil: "networkidle2"
+with faster alternatives:
+
+// For initial page load:
+await page.goto(ANYPLUSPRO_URL, { 
+  waitUntil: "domcontentloaded",  // faster than networkidle
+  timeout: 60000  // increase to 60 seconds
+});
+
+// After login submit, replace waitForNavigation with:
+await Promise.all([
+  page.waitForNavigation({ 
+    waitUntil: "domcontentloaded",
+    timeout: 60000
+  }).catch(() => {}),  // catch in case no navigation occurs
+  page.click('button[type="submit"]'),
+]);
+
+// Add extra wait after navigation for React to render:
+await page.waitForTimeout(3000);
+
+STEP 2 — Increase all timeouts:
+Replace page.setDefaultTimeout(30000) with:
+page.setDefaultTimeout(60000);
+
+STEP 3 — Add retry logic for navigation:
+Replace the initial goto with a retry wrapper:
+
+async function gotoWithRetry(
+  page: Page, 
+  url: string, 
+  maxRetries = 3
+): Promise<void> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await page.goto(url, { 
+        waitUntil: "domcontentloaded",
+        timeout: 60000
+      });
+      await page.waitForTimeout(2000);
+      logger.info({ url, attempt: i + 1 }, "Page loaded successfully");
+      return;
+    } catch (err) {
+      logger.warn({ url, attempt: i + 1, err }, "Navigation attempt failed, retrying...");
+      if (i === maxRetries - 1) throw err;
+      await page.waitForTimeout(3000);
+    }
+  }
+}
+
+Then use it:
+await gotoWithRetry(page, ANYPLUSPRO_URL);
+
+STEP 4 — Replace ALL other waitForNavigation calls:
+Find every instance of:
+await page.waitForNavigation(...)
+
+Replace with:
+await page.waitForTimeout(3000); // simple wait instead
+
+STEP 5 — Add better error handling with screenshot:
+In the catch block, take a screenshot before 
+throwing the error:
+
+} catch (err) {
+  // Take error screenshot
+  try {
+    await page.screenshot({ 
+      path: `${SCREENSHOT_DIR}/error-${Date.now()}.png`,
+      fullPage: true 
+    });
+  } catch {} // ignore screenshot errors
+
+  logger.error({ err }, "AnyPlusPro booking failed");
+  // rest of catch block...
+}
+
+STEP 6 — Add puppeteer launch options for slow connections:
+Update the browser launch to handle slow networks:
+
+browser = await puppeteer.launch({
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-first-run",
+    "--no-zygote",
+    "--single-process",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--safebrowsing-disable-auto-update",
+    "--disable-sync",
+    "--disable-translate",
+    "--hide-scrollbars",
+    "--metrics-recording-only",
+    "--mute-audio",
+    "--no-first-run",
+    "--ignore-certificate-errors",
+  ],
+  timeout: 60000,
+});
+
+// Set slower but more reliable page settings:
+await page.setDefaultTimeout(60000);
+await page.setDefaultNavigationTimeout(60000);
+await page.setViewport({ width: 1280, height: 800 });
+
+// Optimize by blocking unnecessary resources:
+await page.setRequestInterception(true);
+page.on("request", (req) => {
+  const blocked = ["image", "stylesheet", "font", "media"];
+  if (blocked.includes(req.resourceType())) {
+    req.abort();
+  } else {
+    req.continue();
+  }
+});

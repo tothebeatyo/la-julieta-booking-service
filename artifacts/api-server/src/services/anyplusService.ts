@@ -82,6 +82,18 @@ const BROWSER_ARGS = [
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
   "--disable-gpu",
+  "--no-first-run",
+  "--no-zygote",
+  "--single-process",
+  "--disable-extensions",
+  "--disable-background-networking",
+  "--safebrowsing-disable-auto-update",
+  "--disable-sync",
+  "--disable-translate",
+  "--hide-scrollbars",
+  "--metrics-recording-only",
+  "--mute-audio",
+  "--ignore-certificate-errors",
 ];
 
 function getScreenshotDir(): string {
@@ -113,7 +125,25 @@ async function launchBrowser(): Promise<Browser> {
     executablePath: CHROMIUM_EXEC,
     headless,
     args: BROWSER_ARGS,
+    timeout: 60000,
   });
+}
+
+// ─── Retry-safe page navigation ───────────────────────────────────────────────
+
+async function gotoWithRetry(page: Page, url: string, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(2000);
+      logger.info({ url, attempt }, "Page loaded successfully");
+      return;
+    } catch (err) {
+      logger.warn({ url, attempt, err }, "Navigation attempt failed, retrying…");
+      if (attempt === maxRetries) throw err;
+      await page.waitForTimeout(3000);
+    }
+  }
 }
 
 // ─── Register a new patient on the AnyPlusPro form ───────────────────────────
@@ -241,25 +271,38 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     });
     const page = await context.newPage();
 
+    // ── Increase timeouts and block heavy resources for speed ────────────────
+    page.setDefaultTimeout(60000);
+    page.setDefaultNavigationTimeout(60000);
+    await page.route("**/*", (route) => {
+      const blocked = ["image", "stylesheet", "font", "media"];
+      if (blocked.includes(route.request().resourceType())) {
+        route.abort().catch(() => {});
+      } else {
+        route.continue().catch(() => {});
+      }
+    });
+
     // ── Step 1: Login ────────────────────────────────────────────────────────
     logger.info("AnyPlusPro: navigating to login page");
-    await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
-    await page.waitForTimeout(1500); // let JS hydrate
+    await gotoWithRetry(page, loginUrl);
     screenshotPath = await takeScreenshot(page, "01_login_page");
 
     // Fill username/password fields (try common selectors)
     await page.fill('input[type="email"], input[name="email"], input[name="username"], input[placeholder*="email" i], input[placeholder*="user" i]', username, { timeout: 8000 });
     await page.fill('input[type="password"]', password, { timeout: 5000 });
-    await page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")', { timeout: 5000 });
-
-    await page.waitForLoadState("load", { timeout: 12000 });
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {}),
+      page.click('button[type="submit"], button:has-text("Login"), button:has-text("Sign In")', { timeout: 5000 }),
+    ]);
+    await page.waitForTimeout(3000);
     screenshotPath = await takeScreenshot(page, "02_after_login");
 
     // ── Step 2: Select branch if needed ─────────────────────────────────────
     const branchSelector = page.locator(`text="${branchName}"`, { hasText: branchName });
     if (await branchSelector.isVisible({ timeout: 3000 }).catch(() => false)) {
       await branchSelector.click();
-      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(3000);
       logger.info(`AnyPlusPro: selected branch ${branchName}`);
     }
 
@@ -267,19 +310,19 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     const posLink = page.locator('a:has-text("POS"), nav a:has-text("POS"), a[href*="pos"]').first();
     if (await posLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await posLink.click();
-      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(3000);
     }
 
     const apptLink = page.locator('a:has-text("Appointment"), a[href*="appointment"]').first();
     if (await apptLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await apptLink.click();
-      await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(3000);
     }
     screenshotPath = await takeScreenshot(page, "03_appointments_page");
 
     // ── Step 4: Click "Book Appointment" ────────────────────────────────────
     await page.click('button:has-text("Book Appointment"), button:has-text("New Appointment"), button:has-text("Add Appointment"), a:has-text("Book Appointment")', { timeout: 10000 });
-    await page.waitForLoadState("load", { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(3000);
     screenshotPath = await takeScreenshot(page, "04_book_appointment_modal");
 
     // ── Step 5 & 6: Handle patient — Old (search existing) vs New (register) ───
@@ -485,15 +528,19 @@ export async function createReservation(payload: BookingPayload): Promise<Bookin
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error({ err: errMsg, psid: payload.psid }, "AnyPlusPro automation failed");
 
-    // Take error screenshot
+    // Take error screenshot from live page if possible
     let errorScreenshot = screenshotPath;
     try {
-      if (!errorScreenshot) {
-        const dir = getScreenshotDir();
-        errorScreenshot = `logs/screenshots/error_${Date.now()}.png`;
-        logger.info(`Error screenshot would be saved to ${errorScreenshot}`);
+      const dir = getScreenshotDir();
+      const errorPath = path.join(dir, `error_${Date.now()}.png`);
+      // browser/page may already be closed — attempt screenshot via existing context
+      const pages = browser?.contexts().flatMap((c) => c.pages()) ?? [];
+      const livePage = pages[0];
+      if (livePage) {
+        await livePage.screenshot({ path: errorPath, fullPage: true }).catch(() => {});
+        errorScreenshot = `logs/screenshots/${path.basename(errorPath)}`;
       }
-    } catch { /* ignore */ }
+    } catch { /* ignore screenshot errors */ }
 
     await upsertClient({
       psid: payload.psid,
