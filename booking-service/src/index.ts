@@ -43,7 +43,7 @@ app.post("/book", auth, async (req, res) => {
     "--single-process",
     "--disable-extensions"],
     });
-    const context = await browser.createBrowserContext();
+    const context = await browser.createBrowserContext();;
     const page = await context.newPage();
     await page.setViewport({ width: 1280, height: 800 });
     await page.setDefaultNavigationTimeout(60000);
