@@ -31,23 +31,22 @@ app.post("/book", auth, async (req, res) => {
   console.log("Booking:", { name, service, date, time });
   let browser = null;
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath: process.env["PUPPETEER_EXECUTABLE_PATH"] || undefined,
-      args: ["--no-sandbox",
-  "--disable-setuid-sandbox",
-  "--disable-dev-shm-usage",
-  "--disable-gpu",
-  "--no-first-run",
-  "--no-zygote",
-  "--disable-extensions",
-  "--disable-background-networking",
-  "--single-process",
-  "--memory-pressure-off"],
+    headless: true,
+  executablePath: "/usr/bin/chromium",
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-first-run",
+    "--no-zygote",
+    "--single-process",
+    "--disable-extensions"],
     });
-    const page = await browser.newPage();
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
     await page.setViewport({ width: 1280, height: 800 });
-    await page.setDefaultTimeout(60000);
+    await page.setDefaultNavigationTimeout(60000);
     await page.setRequestInterception(true);
     page.on("request", req => {
       ["image","media","font"].includes(req.resourceType()) ? req.abort() : req.continue();
