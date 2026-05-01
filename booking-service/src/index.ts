@@ -34,7 +34,16 @@ app.post("/book", auth, async (req, res) => {
     browser = await puppeteer.launch({
       headless: true,
       executablePath: process.env["PUPPETEER_EXECUTABLE_PATH"] || undefined,
-      args: ["--no-sandbox","--disable-setuid-sandbox","--disable-dev-shm-usage","--disable-gpu"],
+      args: ["--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-gpu",
+  "--no-first-run",
+  "--no-zygote",
+  "--disable-extensions",
+  "--disable-background-networking",
+  "--single-process",
+  "--memory-pressure-off"],
     });
     const page = await browser.newPage();
     await page.setViewport({ width: 1280, height: 800 });
